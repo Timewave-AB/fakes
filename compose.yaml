@@ -1,0 +1,63 @@
+# Docker-based dev workflow — no local tooling beyond Docker is required.
+#
+#   docker compose run --rm test
+#   docker compose run --rm ci
+#   docker compose run --rm vet
+#   docker compose run --rm build
+#
+# Build caches persist in the `gocache` volume, so re-runs are fast and the
+# host tree stays clean. Commands that rewrite source (fmt, tidy) keep your
+# ownership when run with `--user "$(id -u):$(id -g)"`.
+
+x-go: &go
+  image: golang:1.26.4
+  working_dir: /app
+  volumes:
+    - .:/app
+    - gocache:/cache
+  environment:
+    HOME: /cache
+    GOCACHE: /cache/build
+    GOMODCACHE: /cache/mod
+
+services:
+  test:
+    <<: *go
+    command: go test ./...
+
+  cover:
+    <<: *go
+    command: go test -cover ./...
+
+  vet:
+    <<: *go
+    command: go vet ./...
+
+  build:
+    <<: *go
+    command: go build ./...
+
+  fmt:
+    <<: *go
+    command: gofmt -w .
+
+  tidy:
+    <<: *go
+    command: go mod tidy
+
+  # vet + format check + tests, in one container.
+  ci:
+    <<: *go
+    command: >
+      sh -c 'go vet ./... &&
+      { unformatted=$$(gofmt -l .); test -z "$$unformatted" ||
+        { echo "unformatted files:"; echo "$$unformatted"; exit 1; }; } &&
+      go test ./...'
+
+  # Interactive shell for ad-hoc work: docker compose run --rm dev
+  dev:
+    <<: *go
+    command: sh
+
+volumes:
+  gocache:

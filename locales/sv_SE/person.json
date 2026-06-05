@@ -1,0 +1,22 @@
+[
+	{
+		"format": "{prefix}{femalefirst|malefirst} {last}",
+    "femalefirst": ["Anna", "Astrid", "Elin", "Emma", "Ingrid", "Karin", "Linnéa", "Maria", "Sara", "Sofia"],
+    "malefirst": ["Anders", "Erik", "Gustav", "Johan", "Karl", "Lars", "Mikael", "Nils", "Oskar", "Per"],
+    "last": [
+      {
+        "format": "{first}sson",
+        "first": ["Ander", "Erik", "Johan", "Karl", "Lar"]
+      },
+      ["Berg", "von Flemming", "Eismar"]
+    ],
+    "prefix": [
+      "",
+      {
+        "format": "{string} ",
+        "string": ["dr", "prof"],
+        "weight": 0.05
+      }
+    ]
+  }
+]

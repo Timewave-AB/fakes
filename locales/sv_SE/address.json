@@ -1,0 +1,39 @@
+[
+	{
+		"format": "{street} {street-number}\n{postal-code} {locality}",
+		"street": [
+			{
+				"format": "{first}{last}",
+				"first": ["Bergs", "Kungs", "Stor"],
+				"last": ["gatan", "vägen", "stigen"]
+			},
+			["Vintjärn", "Staby", "Promenaden"]
+		],
+		"street-number": [
+			{
+				"format": "1"
+			},
+			{
+				"format": "10"
+			},
+			{
+				"format": "100",
+				"weight": 0.2
+			},
+			{
+				"format": "1A",
+				"weight": 0.2
+			},
+			{
+				"format": "10A",
+				"weight": 0.1
+			}
+		],
+		"postal-code": [
+			{
+				"format": "100 10"
+			}
+		],
+		"locality": ["Göteborg", "Linköping", "Malmö", "Stockholm", "Uppsala", "Västerås", "Örebro"]
+	}
+]

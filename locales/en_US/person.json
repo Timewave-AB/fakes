@@ -1,0 +1,16 @@
+[
+  {
+    "format": "{prefix}{femalefirst|malefirst} {last}",
+    "femalefirst": ["Amelia", "Ava", "Charlotte", "Emma", "Evelyn", "Harper", "Isabella", "Mia", "Olivia", "Sophia"],
+    "malefirst": ["Benjamin", "Elijah", "Henry", "James", "Liam", "Lucas", "Mason", "Noah", "Oliver", "William"],
+    "last": ["Brown", "Davis", "Garcia", "Johnson", "Jones", "Miller", "Smith", "Taylor", "Williams", "Wilson"],
+    "prefix": [
+      "",
+      {
+        "format": "{title} ",
+        "title": ["Dr", "Mr", "Mrs", "Ms"],
+        "weight": 0.1
+      }
+    ]
+  }
+]

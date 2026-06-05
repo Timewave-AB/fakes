@@ -1,0 +1,31 @@
+[
+  {
+    "format": "{street-number} {street}\n{locality}, {region} {postal-code}",
+    "street": [
+      {
+        "format": "{name} {suffix}",
+        "name": ["Cedar", "Elm", "Lincoln", "Maple", "Oak", "Pine", "Washington"],
+        "suffix": ["Street", "Avenue", "Drive", "Lane"]
+      }
+    ],
+    "street-number": [
+      {
+        "format": "10"
+      },
+      {
+        "format": "100"
+      },
+      {
+        "format": "1000",
+        "weight": 0.5
+      }
+    ],
+    "locality": ["Austin", "Boston", "Chicago", "Denver", "Houston", "Phoenix", "Portland", "Seattle"],
+    "region": ["CA", "IL", "MA", "NY", "TX", "WA"],
+    "postal-code": [
+      {
+        "format": "10000"
+      }
+    ]
+  }
+]
