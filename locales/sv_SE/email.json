@@ -1,0 +1,15 @@
+[
+  {
+    "format": "{local}@{domain}",
+    "local": [
+      {
+        "format": "{first}{sep}{last}{n}",
+        "first": ["erik", "anna", "lars", "karin", "johan", "sara", "anders", "emma", "per", "sofia"],
+        "last": ["andersson", "johansson", "karlsson", "nilsson", "eriksson", "larsson", "olsson", "persson", "svensson", "gustafsson"],
+        "sep": [".", "_", "."],
+        "n": ["", "", "1", "7", "42"]
+      }
+    ],
+    "domain": ["example.com", "example.org", "example.net", "mail.example.com"]
+  }
+]

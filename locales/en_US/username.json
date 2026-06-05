@@ -1,0 +1,9 @@
+[
+  {
+    "format": "{first}{sep}{last}{n}",
+    "first": ["alex", "chris", "jamie", "jordan", "morgan", "sam", "taylor", "casey", "riley", "drew"],
+    "last": ["adams", "brooks", "carter", "evans", "fisher", "grant", "hayes", "lane", "morris", "reed"],
+    "sep": ["", "", ".", "_"],
+    "n": ["", "", "", "1", "7", "23", "99"]
+  }
+]

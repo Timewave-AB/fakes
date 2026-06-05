@@ -1,0 +1,14 @@
+[
+  {
+    "format": "{base} {suffix}",
+    "base": [
+      {
+        "format": "{a}{b}",
+        "a": ["Berg", "Blå", "Järn", "Nord", "Ny", "Sjö", "Skog", "Sol", "Sten", "Stor"],
+        "b": ["bygg", "data", "gruppen", "handel", "konsult", "logistik", "produkter", "system", "teknik", "verkstad"]
+      },
+      ["Aktiebolaget Vega", "Ekonomihuset", "Lindberg", "Nordström", "Svensson & Co"]
+    ],
+    "suffix": ["AB", "AB", "AB", "HB", "KB"]
+  }
+]

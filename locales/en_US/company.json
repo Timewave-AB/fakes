@@ -1,0 +1,14 @@
+[
+  {
+    "format": "{base} {suffix}",
+    "base": [
+      {
+        "format": "{a}{b}",
+        "a": ["Acme", "Apex", "Blue", "Bright", "Iron", "North", "Pioneer", "Silver", "Summit", "Vertex"],
+        "b": ["core", "field", "line", "logic", "point", "soft", "tech", "ware", "wave", "works"]
+      },
+      ["Atlas Industries", "Hudson Partners", "Liberty Holdings", "Riverside", "Smith & Sons"]
+    ],
+    "suffix": ["Co.", "Corp.", "Group", "Inc.", "LLC", "Ltd."]
+  }
+]

@@ -1,0 +1,8 @@
+[
+  {
+    "format": "{hour}:{minute}{sec}",
+    "hour": [{ "format": "#00", "weight": 4 }, { "format": "#10", "weight": 4 }, { "format": "2{t}", "t": ["0", "1", "2", "3"], "weight": 2 }],
+    "minute": [{ "format": "{t}0", "t": ["0", "1", "2", "3", "4", "5"] }],
+    "sec": ["", { "format": ":{s}", "s": [{ "format": "{t}0", "t": ["0", "1", "2", "3", "4", "5"] }], "weight": 0.4 }]
+  }
+]

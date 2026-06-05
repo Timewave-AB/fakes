@@ -1,0 +1,7 @@
+[
+  {
+    "format": "{amt}{ore} kr",
+    "amt": [{ "format": "10", "weight": 3 }, { "format": "100", "weight": 2 }, { "format": "1 000" }],
+    "ore": ["", { "format": ",{c}", "c": [{ "format": "00" }], "weight": 0.4 }]
+  }
+]

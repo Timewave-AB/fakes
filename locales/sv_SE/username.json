@@ -1,0 +1,9 @@
+[
+  {
+    "format": "{first}{sep}{last}{n}",
+    "first": ["erik", "anna", "lars", "karin", "johan", "sara", "anders", "emma", "per", "sofia"],
+    "last": ["berg", "lind", "holm", "strom", "dahl", "ek", "sjo", "ahl", "falk", "ros"],
+    "sep": ["", "", ".", "_"],
+    "n": ["", "", "", "1", "7", "23", "99"]
+  }
+]

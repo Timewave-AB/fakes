@@ -1,0 +1,10 @@
+[
+  {
+    "format": "{lead} {adj} {noun} {verb} {prep} {adj} {noun}.",
+    "lead": ["Alla", "Den", "En", "Ett", "Varje"],
+    "adj": ["gamla", "gyllene", "ljusa", "mörka", "snabba", "stora", "tysta", "vilda"],
+    "noun": ["berget", "floden", "hamnen", "motorn", "räven", "signalen", "skogen", "trädgården"],
+    "verb": ["bygger", "bär", "följer", "formar", "korsar", "når", "vaktar"],
+    "prep": ["bortom", "genom", "längs", "under", "över"]
+  }
+]

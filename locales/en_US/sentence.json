@@ -1,0 +1,10 @@
+[
+  {
+    "format": "{lead} {adj} {noun} {verb} {prep} {adj} {noun}.",
+    "lead": ["A", "Each", "Every", "One", "The"],
+    "adj": ["ancient", "bright", "fierce", "golden", "lazy", "modern", "quick", "silent"],
+    "noun": ["engine", "forest", "fox", "garden", "harbor", "mountain", "river", "signal"],
+    "verb": ["builds", "carries", "crosses", "follows", "guards", "reveals", "shapes"],
+    "prep": ["across", "beneath", "beyond", "over", "through"]
+  }
+]

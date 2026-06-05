@@ -1,0 +1,15 @@
+[
+  {
+    "format": "{local}@{domain}",
+    "local": [
+      {
+        "format": "{first}{sep}{last}{n}",
+        "first": ["james", "mary", "john", "patricia", "robert", "linda", "michael", "emma", "david", "olivia"],
+        "last": ["smith", "johnson", "williams", "brown", "jones", "garcia", "miller", "davis", "wilson", "taylor"],
+        "sep": [".", "_", "."],
+        "n": ["", "", "1", "7", "42"]
+      }
+    ],
+    "domain": ["example.com", "example.org", "example.net", "mail.example.com"]
+  }
+]

@@ -1,0 +1,7 @@
+[
+  {
+    "format": "${amt}.{cents}",
+    "amt": [{ "format": "10", "weight": 3 }, { "format": "100", "weight": 2 }, { "format": "1#,000" }],
+    "cents": [{ "format": "00" }]
+  }
+]

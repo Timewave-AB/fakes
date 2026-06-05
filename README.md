@@ -84,6 +84,12 @@ The library ships a ready-to-use set under [`locales/`](locales) (`en_US`,
 `sv_SE`). Pass `New` the path to one of them, a copy, or your own directory —
 anywhere on disk.
 
+Each ships these categories, formatted per locale (e.g. `date` is `MM/DD/YYYY`
+in `en_US`, `YYYY-MM-DD` in `sv_SE`; `ssn` is a US SSN vs a Swedish
+personnummer): `address`, `color`, `company`, `date`, `email`, `ip`, `person`,
+`phone`, `price`, `sentence`, `ssn`, `time`, `url`, `username`, `uuid`,
+`version`, `word`.
+
 The directory's name is the locale and must be a full tag (`sv_SE`, never
 `sv`). Any casing or separator is accepted and canonicalised (`sv-se`,
 `SV_SE` → `sv_SE`); a non-full name returns an error.

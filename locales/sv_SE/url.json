@@ -1,0 +1,7 @@
+[
+  {
+    "format": "https://{host}{path}",
+    "host": ["example.com", "www.example.com", "example.org", "blogg.example.net", "butik.example.com", "example.se"],
+    "path": ["", { "format": "/{seg}", "seg": ["om", "produkter", "blogg", "kontakt", "hjalp", "artiklar", "logga-in", "nyheter", "start", "sok"] }]
+  }
+]

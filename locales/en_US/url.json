@@ -1,0 +1,7 @@
+[
+  {
+    "format": "https://{host}{path}",
+    "host": ["example.com", "www.example.com", "example.org", "blog.example.net", "shop.example.com", "example.io"],
+    "path": ["", { "format": "/{seg}", "seg": ["about", "account", "blog", "contact", "help", "items", "login", "news", "products", "search"] }]
+  }
+]
