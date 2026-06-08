@@ -54,11 +54,11 @@ func TestNewErrors(t *testing.T) {
 	if err := os.WriteFile(file, []byte("{}"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := New(file); err == nil {
+	if _, err := New([]string{file}); err == nil {
 		t.Error("New(file) = nil error, want not-a-directory error")
 	}
 	// Invalid JSON in a category file fails.
-	if _, err := New(writeLocale(t, "xx_XX", map[string]string{"broken": `{ not json`})); err == nil {
+	if _, err := New([]string{writeData(t, map[string]string{"broken": `{ not json`})}); err == nil {
 		t.Error("New(invalid JSON) = nil error")
 	}
 }
@@ -92,7 +92,7 @@ func TestDescendIntoLiteralErrors(t *testing.T) {
 // --- category root shapes ---
 
 func TestCategoryRootShapes(t *testing.T) {
-	dir := writeLocale(t, "xx_XX", map[string]string{
+	dir := writeData(t, map[string]string{
 		"obj": `{"format":"00"}`, // object root
 		"lit": `"hello"`,         // bare-string root
 	})
@@ -117,7 +117,7 @@ func TestLongStringList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := newFakes(t, writeLocale(t, "xx_XX", map[string]string{"name": string(list)}), WithSeed(1))
+	f := newFakes(t, writeData(t, map[string]string{"name": string(list)}), WithSeed(1))
 
 	valid := map[string]bool{}
 	for _, v := range names {
@@ -145,7 +145,7 @@ var swedishName = regexp.MustCompile(`^\p{L}+([ -]\p{L}+)*$`)
 
 func TestShippedStreetComposition(t *testing.T) {
 	// street is a choice of composed {first}{last} templates and literal names.
-	f := newFakes(t, "locales/sv_SE", WithSeed(5))
+	f := newFakes(t, "data/sv_SE", WithSeed(5))
 	for i := 0; i < 300; i++ {
 		if s := fake(t, f, "address.street"); !swedishName.MatchString(s) {
 			t.Fatalf("street %q is not a Swedish street name", s)
@@ -155,7 +155,7 @@ func TestShippedStreetComposition(t *testing.T) {
 
 func TestShippedLastNameComposition(t *testing.T) {
 	// last is a choice of patronymic {first}sson templates and literal surnames.
-	f := newFakes(t, "locales/sv_SE", WithSeed(6))
+	f := newFakes(t, "data/sv_SE", WithSeed(6))
 	for i := 0; i < 300; i++ {
 		if s := fake(t, f, "person.last"); !swedishName.MatchString(s) {
 			t.Fatalf("last name %q is not a Swedish surname", s)
@@ -165,7 +165,7 @@ func TestShippedLastNameComposition(t *testing.T) {
 
 func TestShippedStreetNumberFormats(t *testing.T) {
 	// Reachable via a hyphenated path; covers all five weighted number variants.
-	f := newFakes(t, "locales/sv_SE", WithSeed(8))
+	f := newFakes(t, "data/sv_SE", WithSeed(8))
 	re := regexp.MustCompile(`^[1-9]\d{0,2}[A-Z]?$`)
 	for i := 0; i < 300; i++ {
 		if n := fake(t, f, "address.street-number"); !re.MatchString(n) {

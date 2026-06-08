@@ -6,7 +6,10 @@ import (
 	"testing"
 )
 
-const svSE = "../../locales/sv_SE"
+const (
+	svSE = "../../data/sv_SE"
+	enUS = "../../data/en_US"
+)
 
 // runOut runs the CLI and returns exit code, stdout, stderr.
 func runOut(args ...string) (int, string, string) {
@@ -54,8 +57,9 @@ func TestRunSeedDeterministic(t *testing.T) {
 	}
 }
 
-func TestRunUsageOnWrongArgCount(t *testing.T) {
-	for _, args := range [][]string{{}, {svSE}, {svSE, "person", "extra"}} {
+func TestRunUsageOnTooFewArgs(t *testing.T) {
+	// Need at least one data dir plus a path; fewer is misuse.
+	for _, args := range [][]string{{}, {svSE}} {
 		code, _, errb := runOut(args...)
 		if code != 2 {
 			t.Errorf("run(%v) = %d, want 2", args, code)
@@ -63,6 +67,17 @@ func TestRunUsageOnWrongArgCount(t *testing.T) {
 		if !strings.Contains(errb, "Usage") {
 			t.Errorf("run(%v) stderr = %q, want usage", args, errb)
 		}
+	}
+}
+
+func TestRunMultipleDirs(t *testing.T) {
+	// Several data dirs then a final path: all but the last arg are dirs.
+	code, out, errb := runOut(enUS, svSE, "person")
+	if code != 0 {
+		t.Fatalf("run(multi-dir) = %d, stderr=%q", code, errb)
+	}
+	if strings.TrimSpace(out) == "" {
+		t.Fatal("empty output for multi-dir run")
 	}
 }
 
@@ -76,8 +91,8 @@ func TestRunUnknownCategoryFails(t *testing.T) {
 	}
 }
 
-func TestRunBadLocaleFails(t *testing.T) {
-	code, _, errb := runOut("../../locales/sv", "person")
+func TestRunMissingDirFails(t *testing.T) {
+	code, _, errb := runOut("../../data/nope", "person")
 	if code != 1 {
 		t.Fatalf("run = %d, want 1", code)
 	}

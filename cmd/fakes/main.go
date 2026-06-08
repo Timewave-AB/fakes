@@ -1,10 +1,12 @@
-// Command fakes prints one fake value from a locale directory.
+// Command fakes prints one fake value from one or more data directories.
 //
-//	fakes ./locales/sv_SE person        # a full person
-//	fakes ./locales/sv_SE person.last   # just the surname (dotted path)
-//	fakes -seed 42 ./locales/sv_SE address
+//	fakes ./data/sv_SE person          # a full person
+//	fakes ./data/sv_SE person.last     # just the surname (dotted path)
+//	fakes ./data sv_SE.person          # point at the tree, address by folder
+//	fakes ./data/sv_SE ./mydata person # layer custom data; last dir wins
+//	fakes -seed 42 ./data/sv_SE address
 //
-// It is a thin CLI over the fakes library: New(dir) then Fake(path).
+// It is a thin CLI over the fakes library: New(dirs) then Fake(path).
 package main
 
 import (
@@ -16,11 +18,11 @@ import (
 	"github.com/Timewave-AB/fakes"
 )
 
-const usage = `Usage: fakes [-seed N] <locale-dir> <path>
+const usage = `Usage: fakes [-seed N] <data-dir>... <path>
 
-  <locale-dir>  a locale directory, e.g. ./locales/sv_SE
-  <path>        a category, or a dotted path into one (person, person.last)
-  -seed N       seed for reproducible output`
+  <data-dir>  one or more data directories, e.g. ./data/sv_SE (last wins on clash)
+  <path>      a category, or a dotted path into one (person, person.last)
+  -seed N     seed for reproducible output`
 
 func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
 
@@ -34,7 +36,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	if fs.NArg() != 2 {
+	if fs.NArg() < 2 {
 		fs.Usage()
 		return 2
 	}
@@ -46,12 +48,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 	})
 
-	f, err := fakes.New(fs.Arg(0), opts...)
+	dirs, path := fs.Args()[:fs.NArg()-1], fs.Arg(fs.NArg()-1)
+	f, err := fakes.New(dirs, opts...)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	v, err := f.Fake(fs.Arg(1))
+	v, err := f.Fake(path)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1

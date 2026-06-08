@@ -7,10 +7,11 @@ lacked the locale coverage and format control we needed.
 - **Standards first** — formats, names and structures follow international and
   local standards first and foremost.
 - **Locale-aware** — names, addresses, postal codes and phone numbers follow
-  per-locale data and formats. Locales are always full language + territory
-  tags (`sv_SE`, never `sv`).
+  per-locale data and formats. The shipped data is organised by full locale tag
+  (`sv_SE`), but the engine treats folders as plain namespaces — name yours
+  anything.
 - **Data lives in JSON** — all source data is recursive JSON on disk, read when
-  you create a faker and then served from memory. Add or change locales without
+  you create a faker and then served from memory. Add or change data without
   touching the library. Behavior belongs in data too: the engine grows a
   built-in function only for what data can't express (a checksum, a time-based
   id), never for what character classes and choices already do.
@@ -23,25 +24,27 @@ lacked the locale coverage and format control we needed.
 
 ## CLI
 
-Install the `fakes` command, then point it at a locale directory and a category
-path — it prints one value to stdout. The first path segment names a category (a
-JSON file); deeper dotted segments descend into it.
+Install the `fakes` command, then point it at one or more data directories and a
+path — it prints one value to stdout. Each dot segment descends one level:
+folders, then the category (a JSON file), then fields inside it.
 
 ```sh
 go install github.com/Timewave-AB/fakes/cmd/fakes@latest
 
-fakes ./locales/sv_SE person        # Sara Eriksson
-fakes ./locales/sv_SE person.last   # Eriksson  (dotted path into a category)
-fakes -seed 42 ./locales/sv_SE address
+fakes ./data/sv_SE person        # Sara Eriksson
+fakes ./data/sv_SE person.last   # Eriksson  (dotted path into a category)
+fakes ./data sv_SE.person        # point at the tree; the folder is a segment
+fakes ./data/sv_SE ./mydata word # layer dirs; the last wins a name clash
+fakes -seed 42 ./data/sv_SE address
 ```
 
 Without installing, run it from a checkout with `go run ./cmd/fakes …`. Exit
-codes: `0` success, `1` runtime error (bad locale, unknown path), `2` misuse.
+codes: `0` success, `1` runtime error (missing dir, unknown path), `2` misuse.
 
 ### Generating a file from a custom template
 
-A category is just a JSON file in the locale directory, so you can drop in your
-own and render it — no code change. Save this as `locales/sv_SE/sql.json`:
+A category is just a JSON file in a data directory, so you can drop in your
+own and render it — no code change. Save this as `data/sv_SE/sql.json`:
 
 ```json
 {
@@ -58,10 +61,10 @@ own and render it — no code change. Save this as `locales/sv_SE/sql.json`:
 `sql-username` renders `'{username}'` `repeat` times and joins the results with
 the `),(` separator; the outer `V#ALUES(…)` wraps that into one valid row list.
 (`#A` escapes the literal `A`, which a format string would otherwise read as a
-letter token — see [Locale data format](#locale-data-format).)
+letter token — see [Data format](#data-format).)
 
 ```sh
-fakes -seed 1 ./locales/sv_SE sql
+fakes -seed 1 ./data/sv_SE sql
 # INSERT INTO users VALUES('zoom'),('wahoo'),('blip');
 ```
 
@@ -69,7 +72,7 @@ Raise `repeat` for more rows per statement, or loop in the shell to build a
 whole seed file:
 
 ```sh
-for _ in $(seq 100); do fakes ./locales/sv_SE sql; done > seed.sql
+for _ in $(seq 100); do fakes ./data/sv_SE sql; done > seed.sql
 ```
 
 ## Library
@@ -78,9 +81,9 @@ for _ in $(seq 100); do fakes ./locales/sv_SE sql; done > seed.sql
 go get github.com/Timewave-AB/fakes   # requires Go 1.22+ (for math/rand/v2)
 ```
 
-Point `New` at a locale directory, then generate values by category path with
-`Fake`. The first path segment names a category (a JSON file); deeper dotted
-segments descend into it.
+Point `New` at one or more data directories, then generate values by path with
+`Fake`. Each dot segment descends one level: folders, then the category (a JSON
+file), then fields inside it.
 
 ```go
 package main
@@ -93,7 +96,7 @@ import (
 )
 
 func main() {
-	f, err := fakes.New("./locales/sv_SE")
+	f, err := fakes.New([]string{"./data/sv_SE"})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -120,8 +123,8 @@ Seed a faker for reproducible output — same seed + locale yields an identical
 sequence, handy for stable tests:
 
 ```go
-a, _ := fakes.New("./locales/sv_SE", fakes.WithSeed(42))
-b, _ := fakes.New("./locales/sv_SE", fakes.WithSeed(42))
+a, _ := fakes.New([]string{"./data/sv_SE"}, fakes.WithSeed(42))
+b, _ := fakes.New([]string{"./data/sv_SE"}, fakes.WithSeed(42))
 av, _ := a.Fake("person")
 bv, _ := b.Fake("person")
 av == bv // true
@@ -129,25 +132,34 @@ av == bv // true
 
 A `*Fakes` is **not** safe for concurrent use — create one per goroutine.
 
-## Locales
+## Data
 
-The library ships a ready-to-use set under [`locales/`](locales) (`en_US`,
-`sv_SE`). Point either tool at one of them, a copy, or your own directory —
-anywhere on disk.
+The library ships a ready-to-use set under [`data/`](data), organised by locale
+(`en_US`, `sv_SE`). Point either tool at the whole tree, a single locale, a
+copy, or your own directory — anywhere on disk; no naming rules.
 
-Each ships these categories, formatted per locale (e.g. `date` is `MM/DD/YYYY`
-in `en_US`, `YYYY-MM-DD` in `sv_SE`; `ssn` is a US SSN vs a Swedish
-personnummer): `address`, `color`, `company`, `date`, `email`, `ip`, `person`,
-`phone`, `price`, `sentence`, `ssn`, `time`, `url`, `username`, `uuid`,
-`version`, `word`.
+A directory is just a namespace. Each JSON file is a category named after the
+file; each subdirectory is a dot-path segment — folders nest exactly like JSON
+objects do. So `data/sv_SE/person.json` is `Fake("person")` when you point at
+`data/sv_SE`, or `Fake("sv_SE.person")` when you point at `data`.
 
-The directory's name is the locale and must be a full tag (`sv_SE`, never
-`sv`). Any casing or separator is accepted and canonicalised (`sv-se`,
-`SV_SE` → `sv_SE`); a non-full name returns an error.
+Pass several directories and they merge, left to right: matching folders combine
+by their children, and any other clash is won by the last directory loaded. That
+lets you layer your own data over the built-ins without copying them:
 
-## Locale data format
+```go
+fakes.New([]string{"./data/sv_SE", "./mydata"}) // mydata overrides on a clash
+```
 
-Each JSON file in a locale directory is a **category** named after the file
+Each shipped locale carries these categories, formatted per locale (e.g. `date`
+is `MM/DD/YYYY` in `en_US`, `YYYY-MM-DD` in `sv_SE`; `ssn` is a US SSN vs a
+Swedish personnummer): `address`, `color`, `company`, `date`, `email`, `ip`,
+`person`, `phone`, `price`, `sentence`, `ssn`, `time`, `url`, `username`,
+`uuid`, `version`, `word`.
+
+## Data format
+
+Each JSON file in a data directory is a **category** named after the file
 (`address.json` → `address`), rendered by `Fake("address")`. Drop in a new file
 or folder — no code change, no recompile.
 
@@ -297,13 +309,13 @@ docker compose run --rm test                   # latest
 ```
 fakes.go        Fakes, New, options, seeding
 template.go     Fake, the recursive renderer (choices, format strings, paths)
-locale.go       locale loading + tag parsing
+data.go         data loading: folders/files -> namespace tree, multi-path merge
 cmd/fakes/      the `fakes` CLI (New + Fake over stdout)
-locales/        shipped locale data (JSON)
+data/           shipped data (JSON), organised by locale
 ```
 
-To add a category, drop a JSON file into a locale directory; to add a locale,
-add a directory named with its full tag.
+To add a category, drop a JSON file into a data directory; to add a locale, add
+a subdirectory of JSON files.
 
 ## License
 

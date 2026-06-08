@@ -52,8 +52,8 @@ func TestShippedDataCategories(t *testing.T) {
 			regexp.MustCompile(`^\d{1,3}( \d{3})?(,\d{2})? kr$`)},
 	}
 
-	en := newFakes(t, "locales/en_US", WithSeed(1))
-	sv := newFakes(t, "locales/sv_SE", WithSeed(1))
+	en := newFakes(t, "data/en_US", WithSeed(1))
+	sv := newFakes(t, "data/sv_SE", WithSeed(1))
 	for _, c := range cases {
 		for i := 0; i < 200; i++ {
 			if v := fake(t, en, c.path); !c.en.MatchString(v) {
@@ -70,7 +70,7 @@ func TestShippedDataCategories(t *testing.T) {
 // is a real calendar date (so month-length variants never emit e.g. Apr 31 or
 // Feb 30) and the trailing digit is a valid Luhn checksum over the other nine.
 func TestSwedishPersonnummer(t *testing.T) {
-	sv := newFakes(t, "locales/sv_SE", WithSeed(1))
+	sv := newFakes(t, "data/sv_SE", WithSeed(1))
 	sawLongMonthEnd := false
 	for i := 0; i < 2000; i++ {
 		v := fake(t, sv, "ssn")
@@ -90,6 +90,69 @@ func TestSwedishPersonnummer(t *testing.T) {
 	}
 	if !sawLongMonthEnd {
 		t.Fatal("never generated a 31st — 31-day months are not reaching their last day")
+	}
+}
+
+func TestShippedSwedishPhone(t *testing.T) {
+	f := newFakes(t, "data/sv_SE", WithSeed(11))
+	re := regexp.MustCompile(`^0\d{1,2}-\d{3} \d{2} \d{2}$`)
+	for i := 0; i < 50; i++ {
+		if n := fake(t, f, "phone"); !re.MatchString(n) {
+			t.Fatalf("phone %q does not match %s", n, re)
+		}
+	}
+}
+
+func TestShippedSwedishAddress(t *testing.T) {
+	f := newFakes(t, "data/sv_SE", WithSeed(3))
+	digit := regexp.MustCompile(`\d`)
+	for i := 0; i < 30; i++ {
+		a := fake(t, f, "address")
+		if !regexp.MustCompile(`\n`).MatchString(a) || !digit.MatchString(a) {
+			t.Fatalf("address %q is not a multi-line address with a number", a)
+		}
+	}
+
+	locality := regexp.MustCompile(`^\p{L}+( \p{L}+)*$`)
+	for i := 0; i < 30; i++ {
+		if c := fake(t, f, "address.locality"); !locality.MatchString(c) {
+			t.Fatalf("locality %q is not a Swedish place name", c)
+		}
+	}
+}
+
+func TestShippedPersonHasParts(t *testing.T) {
+	for _, dir := range []string{"data/sv_SE", "data/en_US"} {
+		f := newFakes(t, dir, WithSeed(7))
+		for i := 0; i < 30; i++ {
+			if name := fake(t, f, "person"); len(name) < 3 || !regexp.MustCompile(`\S \S`).MatchString(name) {
+				t.Fatalf("%s person %q lacks first and last name", dir, name)
+			}
+		}
+	}
+}
+
+func TestShippedUSPhone(t *testing.T) {
+	f := newFakes(t, "data/en_US", WithSeed(11))
+	re := regexp.MustCompile(`^(\(\d{3}\) \d{3}-\d{4}|\d{3}-\d{3}-\d{4})$`)
+	for i := 0; i < 50; i++ {
+		if n := fake(t, f, "phone"); !re.MatchString(n) {
+			t.Fatalf("phone %q does not match %s", n, re)
+		}
+	}
+}
+
+// TestShippedNamespacedTree loads the whole data/ tree (not a single locale) and
+// reaches each locale through its folder segment: data/sv_SE/person -> sv_SE.person.
+func TestShippedNamespacedTree(t *testing.T) {
+	f := newFakes(t, "data", WithSeed(1))
+	for _, path := range []string{"sv_SE.person", "en_US.person", "sv_SE.address.locality"} {
+		if got := fake(t, f, path); got == "" {
+			t.Fatalf("Fake(%q) returned empty", path)
+		}
+	}
+	if _, err := f.Fake("person"); err == nil {
+		t.Fatal("Fake(person) = nil error; categories should be namespaced under the locale folder")
 	}
 }
 

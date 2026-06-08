@@ -1,15 +1,17 @@
-// Package fakes generates fake data from recursive, locale-specific JSON
-// templates.
+// Package fakes generates fake data from recursive JSON templates.
 //
-// Locale data lives in JSON on disk, not in Go. Point [New] at a locale
-// directory, then generate values by category path:
+// Data lives in JSON on disk, not in Go. Point [New] at one or more data
+// directories; folders and files become a dot-path namespace, then generate
+// values by path:
 //
-//	f, _ := fakes.New("./locales/sv_SE", fakes.WithSeed(42))
+//	f, _ := fakes.New([]string{"./data/sv_SE"}, fakes.WithSeed(42))
 //	f.Fake("address")          // "Storgatan 12\n234 56 Göteborg"
 //	f.Fake("address.locality") // "Göteborg"
 //
-// The directory's name is the locale and must be a full tag ("sv_SE", never
-// "sv"). The JSON template format is documented in the README.
+// A subdirectory is a namespace segment, so pointing at "./data" instead reaches
+// a category as "sv_SE.address". Several directories are merged left to right;
+// the last one wins on a name clash, so you can layer custom data over the
+// built-ins. The JSON template format is documented in the README.
 //
 // A [Fakes] is not safe for concurrent use; create one per goroutine.
 package fakes
@@ -19,14 +21,12 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/rand/v2"
-	"path/filepath"
 )
 
-// Fakes generates fake data for a single locale. Create one with [New].
+// Fakes generates fake data from a loaded namespace tree. Create one with [New].
 type Fakes struct {
 	rand       *rand.Rand
-	locale     string
-	categories map[string]node // category name -> compiled node tree
+	categories map[string]node // root namespace: name -> compiled node tree
 }
 
 type config struct {
@@ -43,28 +43,22 @@ func WithSeed(seed uint64) Option {
 	return func(c *config) { c.seed, c.seeded = seed, true }
 }
 
-// New builds a faker from a locale directory (e.g. "./locales/sv_SE"). The
-// directory's name is the locale tag and must be a full tag like "sv_SE"; each
-// JSON file in it becomes a category named after the file (address.json ->
-// "address"). It errors on a non-full tag, a missing directory, or invalid JSON.
-func New(dir string, opts ...Option) (*Fakes, error) {
-	name, ok := canonicalLocale(filepath.Base(dir))
-	if !ok {
-		return nil, fmt.Errorf("fakes: %q is not a full locale tag like \"sv_SE\"", filepath.Base(dir))
-	}
-	cats, err := loadLocale(dir)
+// New builds a faker from one or more data directories (e.g. "./data/sv_SE").
+// Each JSON file becomes a category named after the file (address.json ->
+// "address") and each subdirectory a namespace segment; directories are merged
+// in order, the last winning a name clash. It errors on a missing directory,
+// invalid JSON, or no data found.
+func New(paths []string, opts ...Option) (*Fakes, error) {
+	cats, err := loadData(paths)
 	if err != nil {
-		return nil, fmt.Errorf("fakes: %s: %w", name, err)
+		return nil, fmt.Errorf("fakes: %w", err)
 	}
 	var c config
 	for _, opt := range opts {
 		opt(&c)
 	}
-	return &Fakes{rand: newRand(c.seed, c.seeded), locale: name, categories: cats}, nil
+	return &Fakes{rand: newRand(c.seed, c.seeded), categories: cats}, nil
 }
-
-// Locale returns the faker's canonical locale tag.
-func (f *Fakes) Locale() string { return f.locale }
 
 func newRand(seed uint64, seeded bool) *rand.Rand {
 	if !seeded {

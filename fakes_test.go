@@ -5,12 +5,18 @@ import (
 	"testing"
 )
 
-// newFakes creates a faker for a locale directory, failing the test on error.
+// newFakes creates a faker over a single data directory, failing on error. Most
+// tests load one dir; newFakesN loads several (last-loaded wins on conflicts).
 func newFakes(t *testing.T, dir string, opts ...Option) *Fakes {
 	t.Helper()
-	f, err := New(dir, opts...)
+	return newFakesN(t, []string{dir}, opts...)
+}
+
+func newFakesN(t *testing.T, dirs []string, opts ...Option) *Fakes {
+	t.Helper()
+	f, err := New(dirs, opts...)
 	if err != nil {
-		t.Fatalf("New(%q): %v", dir, err)
+		t.Fatalf("New(%q): %v", dirs, err)
 	}
 	return f
 }
@@ -25,23 +31,15 @@ func fake(t *testing.T, f *Fakes, path string) string {
 	return s
 }
 
-func TestNewRejectsNonFullLocale(t *testing.T) {
-	for _, bad := range []string{"locales/sv", "locales/se", "locales/swedish", "locales/sv_S"} {
-		if _, err := New(bad); err == nil {
-			t.Errorf("New(%q) = nil error, want full-locale error", bad)
-		}
-	}
-}
-
 func TestNewMissingDirectory(t *testing.T) {
-	_, err := New("locales/de_DE")
+	_, err := New([]string{"data/de_DE"})
 	if err == nil || !strings.Contains(err.Error(), "de_DE") {
-		t.Fatalf("New(missing) error = %v, want it to name the locale", err)
+		t.Fatalf("New(missing) error = %v, want it to name the path", err)
 	}
 }
 
 func TestWithSeedIsDeterministic(t *testing.T) {
-	a, b := newFakes(t, "locales/sv_SE", WithSeed(42)), newFakes(t, "locales/sv_SE", WithSeed(42))
+	a, b := newFakes(t, "data/sv_SE", WithSeed(42)), newFakes(t, "data/sv_SE", WithSeed(42))
 	for i := 0; i < 50; i++ {
 		if x, y := fake(t, a, "person"), fake(t, b, "person"); x != y {
 			t.Fatalf("same seed diverged at %d: %q != %q", i, x, y)
@@ -50,7 +48,7 @@ func TestWithSeedIsDeterministic(t *testing.T) {
 }
 
 func TestDifferentSeedsDiffer(t *testing.T) {
-	a, b := newFakes(t, "locales/en_US", WithSeed(1)), newFakes(t, "locales/en_US", WithSeed(2))
+	a, b := newFakes(t, "data/en_US", WithSeed(1)), newFakes(t, "data/en_US", WithSeed(2))
 	for i := 0; i < 50; i++ {
 		if fake(t, a, "person") != fake(t, b, "person") {
 			return

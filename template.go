@@ -24,6 +24,13 @@ type literal string
 
 func (literal) isNode() {}
 
+// group is a namespace of named children, built from a directory of JSON files
+// and subdirectories. It has no value of its own: descend into a named child by
+// dot path; rendering one is an error (see Fake).
+type group struct{ children map[string]node }
+
+func (*group) isNode() {}
+
 // choice picks one of its items. cum holds cumulative weights for a weighted
 // pick; when nil the choice is uniform and selection is O(1).
 type choice struct {
@@ -45,19 +52,17 @@ type template struct {
 
 func (*template) isNode() {}
 
-// Fake generates a value for a category path. The first segment names a
-// category (a JSON file); further dot-separated segments descend into named
-// fields, e.g. "address" or "address.street". Choices along the way are
-// resolved at random.
+// Fake generates a value for a dot path. Each segment descends one level: folder
+// names and the category (JSON file) come first, then named fields within it,
+// e.g. "sv_SE.address" or "sv_SE.address.street". Choices along the way are
+// resolved at random. A path naming a folder (no value of its own) is an error.
 func (f *Fakes) Fake(path string) (string, error) {
-	segments := strings.Split(path, ".")
-	n, ok := f.categories[segments[0]]
-	if !ok {
-		return "", fmt.Errorf("fakes: unknown category %q", segments[0])
-	}
-	n, err := descend(f.rand, n, segments[1:])
+	n, err := descend(f.rand, &group{children: f.categories}, strings.Split(path, "."))
 	if err != nil {
 		return "", fmt.Errorf("fakes: %s: %w", path, err)
+	}
+	if _, ok := n.(*group); ok {
+		return "", fmt.Errorf("fakes: %s names a folder, not a value", path)
 	}
 	return render(f.rand, n), nil
 }
@@ -70,6 +75,12 @@ func descend(r rng, n node, segments []string) (node, error) {
 		return n, nil
 	}
 	switch n := n.(type) {
+	case *group:
+		child, ok := n.children[segments[0]]
+		if !ok {
+			return nil, fmt.Errorf("no entry %q", segments[0])
+		}
+		return descend(r, child, segments[1:])
 	case *template:
 		child, ok := n.fields[segments[0]]
 		if !ok {
