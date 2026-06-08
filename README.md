@@ -162,7 +162,7 @@ Each shipped locale carries these categories, formatted per locale (e.g. `date`
 is `MM/DD/YYYY` in `en_US`, `YYYY-MM-DD` in `sv_SE`; `ssn` is a US SSN vs a
 Swedish personnummer): `address`, `color`, `company`, `date`, `email`, `ip`,
 `person`, `phone`, `price`, `sentence`, `ssn`, `time`, `url`, `username`,
-`uuid`, `version`, `word`.
+`version`, `word`.
 
 `data/misc` carries locale-neutral categories: `uuid` (a proper random v4),
 `mac`, and `creditcard` (per-network numbers ending in a valid `{luhn()}` digit).
@@ -230,14 +230,15 @@ form prefixes the century outside the checksummed core:
   "core": { "format": "00{mmdd}-000{luhn()}", "mmdd": [ … ] } }
 ```
 
-A function must be deterministic in the seeded rng (no wall-clock), so a seeded
-faker stays reproducible. A time-based id (UUID v7, ULID) therefore draws its
-timestamp from the rng, not the clock — the result is a valid, reproducible value,
-not a real point in time.
+A function must be deterministic (no wall-clock), so a seeded faker stays
+reproducible. A time-based id (UUID v7, ULID) therefore draws its timestamp from
+the rng, not the clock — the result is a valid, reproducible value, not a real
+point in time.
 
-There are two kinds. **Derivations** read the digits emitted so far, so put them
-after their payload; **generators** read only the rng, so they stand alone.
-Arguments are validated at `New` (a bad count, range, or country fails fast).
+There are three kinds. **Derivations** read the digits emitted so far, so put them
+after their payload; **generators** read only the rng, so they stand alone; one
+**session counter** (`seq`) advances state held on the faker. Arguments are
+validated at `New` (a bad count, range, or country fails fast).
 
 | Function | Kind | Emits |
 |----------|------|-------|
@@ -253,12 +254,17 @@ Arguments are validated at `New` (a bad count, range, or country fails fast).
 | `{int(min,max)}` | generator | uniform integer in `[min, max]` |
 | `{float(min,max,dp)}` | generator | number in `[min, max]` with `dp` decimals |
 | `{iban(CC)}` | generator | a length- and mod-97-valid IBAN for country `CC` (BE, DE, DK, ES, FI, NO, SE) |
+| `{seq()}`, `{seq(name)}` | session counter | next integer (from 1) in this faker's sequence; `name` selects an independent counter |
 
 `{ean()}` is also the ISBN-13 check (an ISBN-13 *is* an EAN-13 — build the 978/979
 prefix in data and call `{ean()}`). `{iban()}` is a generator, not a derivation:
 an IBAN's check digits sit *before* the account number, which a left-to-right
 reader can't reach, so it emits the whole value (a generic numeric BBAN — valid
 length and checksum, not real bank routing).
+
+`{seq()}`'s counter lives on the faker, so it spans `Fake` calls (and `repeat`)
+and resets when you build a new faker — `seq` is reproducible by being ordered,
+not random. It's the natural fit for a primary-key column in the SQL example above.
 
 **References.** A `{..path}` token renders a node from the **data root** instead
 of a sibling field — the dot path is the one `Fake` takes, resolved across every

@@ -96,6 +96,32 @@ func TestBuiltinChecksums(t *testing.T) {
 	}
 }
 
+// TestBuiltinSeqPerSession pins seq's contract: a counter from 1, advancing on
+// each call, named counters independent, and the whole thing scoped to one faker
+// (session) so a fresh faker restarts at 1.
+func TestBuiltinSeqPerSession(t *testing.T) {
+	f := engine(1)
+	for i := 1; i <= 5; i++ {
+		if got := mustRender(t, f, `{"format":"{seq()}"}`); got != strconv.Itoa(i) {
+			t.Fatalf("seq call %d = %q, want %d", i, got, i)
+		}
+	}
+	if got := mustRender(t, f, `{"format":"{seq(orders)}"}`); got != "1" {
+		t.Fatalf("named seq(orders) = %q, want its own count from 1", got)
+	}
+	if got := mustRender(t, f, `{"format":"{seq()}"}`); got != "6" {
+		t.Fatalf("default seq after the named one = %q, want 6 (counters are independent)", got)
+	}
+	// repeat drives one counter forward across its renders...
+	if got := mustRender(t, engine(2), `{"format":"{seq()}","repeat":3,"separator":","}`); got != "1,2,3" {
+		t.Fatalf("repeat seq = %q, want 1,2,3", got)
+	}
+	// ...and a fresh session restarts from 1.
+	if got := mustRender(t, engine(2), `{"format":"{seq()}"}`); got != "1" {
+		t.Fatalf("new session seq = %q, want 1", got)
+	}
+}
+
 func TestBuiltinIBAN(t *testing.T) {
 	wantLen := map[string]int{"SE": 24, "DE": 22, "NO": 15}
 	f := engine(1)

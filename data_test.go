@@ -14,7 +14,6 @@ func TestShippedDataCategories(t *testing.T) {
 	letters := regexp.MustCompile(`^[\pL'-]+$`)
 	semver := regexp.MustCompile(`^v?\d+\.\d+\.\d+(-(alpha|beta|rc)\.\d+)?$`)
 	ip := regexp.MustCompile(`^((\d{1,3}\.){3}\d{1,3}|([0-9a-f]{4}:){7}[0-9a-f]{4})$`)
-	uuid := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 	color := regexp.MustCompile(`^(#[0-9a-f]{6}|[\pL ]+)$`)
 	url := regexp.MustCompile(`^https?://([a-z0-9-]+\.)+[a-z]{2,}(/[a-z0-9./-]*)?$`)
 	email := regexp.MustCompile(`^[a-z0-9._-]+@([a-z0-9-]+\.)+[a-z]{2,}$`)
@@ -45,7 +44,6 @@ func TestShippedDataCategories(t *testing.T) {
 			regexp.MustCompile(`^.+ (AB|HB|KB)$`)},
 		{"color", color, color},
 		{"url", url, url},
-		{"uuid", uuid, uuid},
 		{"username", uname, uname},
 		{"price",
 			regexp.MustCompile(`^\$\d{1,3}(,\d{3})?\.\d{2}$`),

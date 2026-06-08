@@ -25,8 +25,23 @@ import (
 
 // Fakes generates fake data from a loaded namespace tree. Create one with [New].
 type Fakes struct {
-	rand       *rand.Rand
+	rand       *session
 	categories map[string]node // root namespace: name -> compiled node tree
+}
+
+// session is one faker's mutable render state: the seeded rng plus the {seq()}
+// counters. Scoping it to the Fakes means sequences (and randomness) belong to
+// that faker and reset when you create a new one. Embedding *rand.Rand makes a
+// *session satisfy the rng interface the renderer draws from.
+type session struct {
+	*rand.Rand
+	counters map[string]uint64
+}
+
+// next returns the next value (counting from 1) of the named {seq()} counter.
+func (s *session) next(key string) uint64 {
+	s.counters[key]++
+	return s.counters[key]
 }
 
 type config struct {
@@ -60,11 +75,12 @@ func New(paths []string, opts ...Option) (*Fakes, error) {
 	return &Fakes{rand: newRand(c.seed, c.seeded), categories: cats}, nil
 }
 
-func newRand(seed uint64, seeded bool) *rand.Rand {
+func newRand(seed uint64, seeded bool) *session {
+	r := rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))
 	if !seeded {
 		var b [16]byte
 		_, _ = crand.Read(b[:])
-		return rand.New(rand.NewPCG(binary.LittleEndian.Uint64(b[:8]), binary.LittleEndian.Uint64(b[8:])))
+		r = rand.New(rand.NewPCG(binary.LittleEndian.Uint64(b[:8]), binary.LittleEndian.Uint64(b[8:])))
 	}
-	return rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))
+	return &session{Rand: r, counters: map[string]uint64{}}
 }

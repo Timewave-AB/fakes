@@ -70,7 +70,7 @@ func (f *Fakes) Fake(path string) (string, error) {
 // descend walks named fields, resolving choices it meets along the way. It is
 // the one render-side step that can fail, because the path comes from the
 // caller and may name a field that does not exist.
-func descend(r rng, n node, segments []string) (node, error) {
+func descend(s *session, n node, segments []string) (node, error) {
 	if len(segments) == 0 {
 		return n, nil
 	}
@@ -80,15 +80,15 @@ func descend(r rng, n node, segments []string) (node, error) {
 		if !ok {
 			return nil, fmt.Errorf("no entry %q", segments[0])
 		}
-		return descend(r, child, segments[1:])
+		return descend(s, child, segments[1:])
 	case *template:
 		child, ok := n.fields[segments[0]]
 		if !ok {
 			return nil, fmt.Errorf("no field %q", segments[0])
 		}
-		return descend(r, child, segments[1:])
+		return descend(s, child, segments[1:])
 	case *choice:
-		return descend(r, pick(r, n), segments) // a choice consumes no path segment
+		return descend(s, pick(s, n), segments) // a choice consumes no path segment
 	default:
 		return nil, fmt.Errorf("cannot descend into %T at %q", n, segments[0])
 	}
@@ -96,22 +96,22 @@ func descend(r rng, n node, segments []string) (node, error) {
 
 // render evaluates a compiled node to a string. compile validates every node up
 // front, so rendering a compiled tree cannot fail.
-func render(r rng, n node) string {
+func render(s *session, n node) string {
 	switch n := n.(type) {
 	case literal:
 		return string(n)
 	case *choice:
-		return render(r, pick(r, n))
+		return render(s, pick(s, n))
 	case *template:
 		if n.repeat == 1 {
-			return expand(r, n.format, n.fields)
+			return expand(s, n.format, n.fields)
 		}
 		var b strings.Builder
 		for i := 0; i < n.repeat; i++ {
 			if i > 0 {
 				b.WriteString(n.separator)
 			}
-			b.WriteString(expand(r, n.format, n.fields))
+			b.WriteString(expand(s, n.format, n.fields))
 		}
 		return b.String()
 	default:
@@ -137,7 +137,7 @@ func pick(r rng, c *choice) node {
 // any other "{token}" is substituted via resolve; every other rune is literal.
 // checkTokens validated the braces and tokens at compile time, so this scan
 // cannot fail.
-func expand(r rng, format string, fields map[string]node) string {
+func expand(s *session, format string, fields map[string]node) string {
 	var b strings.Builder
 	rs := []rune(format)
 	for i := 0; i < len(rs); i++ {
@@ -149,13 +149,13 @@ func expand(r rng, format string, fields map[string]node) string {
 				b.WriteRune('#')
 			}
 		case '0':
-			b.WriteByte(byte('0' + r.IntN(10)))
+			b.WriteByte(byte('0' + s.IntN(10)))
 		case '1':
-			b.WriteByte(byte('1' + r.IntN(9)))
+			b.WriteByte(byte('1' + s.IntN(9)))
 		case 'A':
-			b.WriteByte(byte('A' + r.IntN(26)))
+			b.WriteByte(byte('A' + s.IntN(26)))
 		case 'a':
-			b.WriteByte(byte('a' + r.IntN(26)))
+			b.WriteByte(byte('a' + s.IntN(26)))
 		case '{':
 			end := i + 1
 			for rs[end] != '}' { // checkTokens guarantees a closing '}'
@@ -163,9 +163,9 @@ func expand(r rng, format string, fields map[string]node) string {
 			}
 			body := string(rs[i+1 : end])
 			if name, args, ok := funcCall(body); ok {
-				b.WriteString(builtins[name].call(r, b.String(), args)) // b.String() is the output so far
+				b.WriteString(builtins[name].call(s, b.String(), args)) // b.String() is the output so far
 			} else {
-				b.WriteString(resolve(r, body, fields))
+				b.WriteString(resolve(s, body, fields))
 			}
 			i = end
 		default:
@@ -178,22 +178,25 @@ func expand(r rng, format string, fields map[string]node) string {
 // resolve renders a "{token}" body: one or more names separated by '|', one
 // picked at random. A name is a sibling field or a {..path} reference, which
 // linkRefs bound into fields too; checkTokens and linkRefs guarantee both exist.
-func resolve(r rng, token string, fields map[string]node) string {
+func resolve(s *session, token string, fields map[string]node) string {
 	names := strings.Split(token, "|")
-	return render(r, fields[names[r.IntN(len(names))]])
+	return render(s, fields[names[s.IntN(len(names))]])
 }
 
 // builtin is a format-string function invoked as {name(args)}. It receives the
-// rng, the output emitted so far in the current expansion (for derivations such
-// as a checksum over preceding digits), and its args. A builtin must be pure
-// over those inputs — no wall-clock, no crypto/rand — so seeding stays
-// reproducible; a time-based id derives its time from the rng. The optional
-// check validates args at compile time (their values, beyond the arity count).
-// The registry lives in builtins.go.
+// session (its rng, and the {seq()} counters), the output emitted so far in the
+// current expansion (for derivations such as a checksum over preceding digits),
+// and its args. Almost all are pure over (rng, emitted, args) — no wall-clock, no
+// crypto/rand — so seeding stays reproducible; a time-based id derives its time
+// from the rng. seq is the one exception: it advances per-session counter state,
+// which is itself deterministic (1, 2, 3 …). arity is the exact arg count, or -1
+// for variadic (then check does all the validation). The optional check validates
+// args at compile time (their values, beyond the count). The registry lives in
+// builtins.go.
 type builtin struct {
 	arity int
 	check func(args []string) error
-	call  func(r rng, emitted string, args []string) string
+	call  func(s *session, emitted string, args []string) string
 }
 
 // funcCall splits a "{token}" body shaped name(args) into its parts; ok is false
@@ -230,7 +233,7 @@ func checkFunc(body string) error {
 	if !known {
 		return fmt.Errorf("token {%s}: unknown function %q", body, name)
 	}
-	if len(args) != b.arity {
+	if b.arity >= 0 && len(args) != b.arity {
 		return fmt.Errorf("token {%s}: %s takes %d args, got %d", body, name, b.arity, len(args))
 	}
 	if b.check != nil {

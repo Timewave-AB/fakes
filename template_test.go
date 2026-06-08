@@ -192,6 +192,7 @@ func TestCompileErrors(t *testing.T) {
 		`{"format":"{float(1,2)}"}`,                                     // wrong arity
 		`{"format":"{float(1,2,-1)}"}`,                                  // negative decimals
 		`{"format":"{iban(US)}"}`,                                       // unsupported country
+		`{"format":"{seq(a,b)}"}`,                                       // seq takes at most one name
 	} {
 		if _, err := compile(parse(t, bad)); err == nil {
 			t.Errorf("compile(%s) = nil error, want error", bad)

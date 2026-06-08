@@ -15,22 +15,32 @@ import (
 // the wall clock. Add a builtin only for what data can't express: a random v4
 // UUID already ships as data (data/misc/uuid.json), so the builtin is v7.
 var builtins = map[string]builtin{
-	"luhn":     {arity: 0, call: func(_ rng, e string, _ []string) string { return string(rune('0' + luhnCheck(e))) }},
-	"mod11":    {arity: 0, call: func(_ rng, e string, _ []string) string { return mod11Check(e) }},
-	"ean":      {arity: 0, call: func(_ rng, e string, _ []string) string { return eanCheck(e) }},
-	"uuid":     {arity: 0, call: func(r rng, _ string, _ []string) string { return uuidV7(r) }},
-	"ulid":     {arity: 0, call: func(r rng, _ string, _ []string) string { return ulid(r) }},
-	"objectid": {arity: 0, call: func(r rng, _ string, _ []string) string { return randHex(r, 24) }},
-	"nanoid":   {arity: 1, check: posIntArg, call: func(r rng, _ string, a []string) string { return nanoid(r, atoi(a[0])) }},
-	"hex":      {arity: 1, check: posIntArg, call: func(r rng, _ string, a []string) string { return randHex(r, atoi(a[0])) }},
-	"base64": {arity: 1, check: posIntArg, call: func(r rng, _ string, a []string) string {
-		return base64.StdEncoding.EncodeToString(randBytes(r, atoi(a[0])))
+	"luhn":     {arity: 0, call: func(_ *session, e string, _ []string) string { return string(rune('0' + luhnCheck(e))) }},
+	"mod11":    {arity: 0, call: func(_ *session, e string, _ []string) string { return mod11Check(e) }},
+	"ean":      {arity: 0, call: func(_ *session, e string, _ []string) string { return eanCheck(e) }},
+	"uuid":     {arity: 0, call: func(s *session, _ string, _ []string) string { return uuidV7(s) }},
+	"ulid":     {arity: 0, call: func(s *session, _ string, _ []string) string { return ulid(s) }},
+	"objectid": {arity: 0, call: func(s *session, _ string, _ []string) string { return randHex(s, 24) }},
+	"nanoid":   {arity: 1, check: posIntArg, call: func(s *session, _ string, a []string) string { return nanoid(s, atoi(a[0])) }},
+	"hex":      {arity: 1, check: posIntArg, call: func(s *session, _ string, a []string) string { return randHex(s, atoi(a[0])) }},
+	"base64": {arity: 1, check: posIntArg, call: func(s *session, _ string, a []string) string {
+		return base64.StdEncoding.EncodeToString(randBytes(s, atoi(a[0])))
 	}},
-	"int": {arity: 2, check: intRangeArgs, call: func(r rng, _ string, a []string) string {
-		return strconv.Itoa(atoi(a[0]) + r.IntN(atoi(a[1])-atoi(a[0])+1))
+	"int": {arity: 2, check: intRangeArgs, call: func(s *session, _ string, a []string) string {
+		return strconv.Itoa(atoi(a[0]) + s.IntN(atoi(a[1])-atoi(a[0])+1))
 	}},
 	"float": {arity: 3, check: floatArgs, call: floatCall},
-	"iban":  {arity: 1, check: ibanArg, call: func(r rng, _ string, a []string) string { return iban(r, a[0]) }},
+	"iban":  {arity: 1, check: ibanArg, call: func(s *session, _ string, a []string) string { return iban(s, a[0]) }},
+	// seq is the one stateful builtin: a per-session counter from 1, advancing on
+	// each call. An optional name selects an independent counter; no name uses the
+	// default one. Deterministic by construction, so a seeded faker stays stable.
+	"seq": {arity: -1, check: seqArg, call: func(s *session, _ string, a []string) string {
+		key := ""
+		if len(a) == 1 {
+			key = a[0]
+		}
+		return strconv.FormatUint(s.next(key), 10)
+	}},
 }
 
 const hexDigits = "0123456789abcdef"
@@ -89,10 +99,20 @@ func floatArgs(a []string) error {
 	return nil
 }
 
-func floatCall(r rng, _ string, a []string) string {
+func floatCall(s *session, _ string, a []string) string {
 	lo, _ := strconv.ParseFloat(a[0], 64)
 	hi, _ := strconv.ParseFloat(a[1], 64)
-	return strconv.FormatFloat(lo+r.Float64()*(hi-lo), 'f', atoi(a[2]), 64)
+	return strconv.FormatFloat(lo+s.Float64()*(hi-lo), 'f', atoi(a[2]), 64)
+}
+
+func seqArg(a []string) error {
+	if len(a) > 1 {
+		return fmt.Errorf("seq takes at most one name, got %d args", len(a))
+	}
+	if len(a) == 1 && a[0] == "" {
+		return fmt.Errorf("seq name must not be empty")
+	}
+	return nil
 }
 
 // nanoidAlphabet is the 64-char URL-safe set Nano IDs use (order is irrelevant
