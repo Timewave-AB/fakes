@@ -1,8 +1,8 @@
 # fakes
 
-A Go library for generating fake data, built for **internationalization**. It
-exists because the existing Go fake libraries lacked the locale coverage and
-format control we needed.
+A Go library and CLI for generating fake data, built for
+**internationalization**. It exists because the existing Go fake libraries
+lacked the locale coverage and format control we needed.
 
 - **Standards first** — formats, names and structures follow international and
   local standards first and foremost.
@@ -17,15 +17,62 @@ format control we needed.
 - **Reproducible** — seed a faker and it emits the same sequence every time.
 - **Zero dependencies** — standard library only.
 
-## Install
+## CLI
+
+Install the `fakes` command, then point it at a locale directory and a category
+path — it prints one value to stdout. The first path segment names a category (a
+JSON file); deeper dotted segments descend into it.
 
 ```sh
-go get github.com/Timewave-AB/fakes
+go install github.com/Timewave-AB/fakes/cmd/fakes@latest
+
+fakes ./locales/sv_SE person        # Sara Eriksson
+fakes ./locales/sv_SE person.last   # Eriksson  (dotted path into a category)
+fakes -seed 42 ./locales/sv_SE address
 ```
 
-Requires Go 1.22+ (for `math/rand/v2`).
+Without installing, run it from a checkout with `go run ./cmd/fakes …`. Exit
+codes: `0` success, `1` runtime error (bad locale, unknown path), `2` misuse.
 
-## Usage
+### Generating a file from a custom template
+
+A category is just a JSON file in the locale directory, so you can drop in your
+own and render it — no code change. Save this as `locales/sv_SE/sql.json`:
+
+```json
+{
+  "format": "INSERT INTO users V#ALUES({sql-username});",
+  "sql-username": {
+    "format": "'{username}'",
+    "repeat": 3,
+    "separator": "),(",
+    "username": ["pixelfox", "snork", "turbohund", "blip", "zoom", "wahoo"]
+  }
+}
+```
+
+`sql-username` renders `'{username}'` `repeat` times and joins the results with
+the `),(` separator; the outer `V#ALUES(…)` wraps that into one valid row list.
+(`#A` escapes the literal `A`, which a format string would otherwise read as a
+letter token — see [Locale data format](#locale-data-format).)
+
+```sh
+fakes -seed 1 ./locales/sv_SE sql
+# INSERT INTO users VALUES('zoom'),('wahoo'),('blip');
+```
+
+Raise `repeat` for more rows per statement, or loop in the shell to build a
+whole seed file:
+
+```sh
+for _ in $(seq 100); do fakes ./locales/sv_SE sql; done > seed.sql
+```
+
+## Library
+
+```sh
+go get github.com/Timewave-AB/fakes   # requires Go 1.22+ (for math/rand/v2)
+```
 
 Point `New` at a locale directory, then generate values by category path with
 `Fake`. The first path segment names a category (a JSON file); deeper dotted
@@ -78,10 +125,10 @@ av == bv // true
 
 A `*Fakes` is **not** safe for concurrent use — create one per goroutine.
 
-### Locales
+## Locales
 
 The library ships a ready-to-use set under [`locales/`](locales) (`en_US`,
-`sv_SE`). Pass `New` the path to one of them, a copy, or your own directory —
+`sv_SE`). Point either tool at one of them, a copy, or your own directory —
 anywhere on disk.
 
 Each ships these categories, formatted per locale (e.g. `date` is `MM/DD/YYYY`
@@ -220,10 +267,11 @@ docker compose run --rm test                   # latest
 ## Layout
 
 ```
-fakes.go      Fakes, New, options, seeding
-template.go   Fake, the recursive renderer (choices, format strings, paths)
-locale.go     locale loading + tag parsing
-locales/      shipped locale data (JSON)
+fakes.go        Fakes, New, options, seeding
+template.go     Fake, the recursive renderer (choices, format strings, paths)
+locale.go       locale loading + tag parsing
+cmd/fakes/      the `fakes` CLI (New + Fake over stdout)
+locales/        shipped locale data (JSON)
 ```
 
 To add a category, drop a JSON file into a locale directory; to add a locale,
