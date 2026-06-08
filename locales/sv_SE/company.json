@@ -4,11 +4,11 @@
     "base": [
       {
         "format": "{a}{b}",
-        "a": ["Berg", "Blå", "Järn", "Nord", "Ny", "Sjö", "Skog", "Sol", "Sten", "Stor"],
-        "b": ["bygg", "data", "gruppen", "handel", "konsult", "logistik", "produkter", "system", "teknik", "verkstad"]
+        "a": ["Berg", "Blå", "Eko", "Fjäll", "Grön", "Järn", "Nord", "Ny", "Sjö", "Skog", "Sol", "Sten", "Stor", "Syd", "Söder", "Trä", "Vind", "Väst", "Ås", "Öst"],
+        "b": ["bygg", "data", "design", "energi", "frakt", "gruppen", "handel", "konsult", "kraft", "logistik", "media", "produkter", "system", "teknik", "verkstad", "vård"]
       },
-      ["Aktiebolaget Vega", "Ekonomihuset", "Lindberg", "Nordström", "Svensson & Co"]
+      ["Aktiebolaget Vega", "Bröderna Lund", "Ekonomihuset", "Hantverkargruppen", "Lindberg", "Mälardalens Bygg", "Nordström", "Skandinaviska Handelshuset", "Sundbergs Verkstad", "Svensson & Co", "Vasa Logistik"]
     ],
-    "suffix": ["AB", "AB", "AB", "HB", "KB"]
+    "suffix": ["AB", "AB", "AB", "AB", "HB", "KB"]
   }
 ]

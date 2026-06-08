@@ -4,11 +4,11 @@
     "base": [
       {
         "format": "{a}{b}",
-        "a": ["Acme", "Apex", "Blue", "Bright", "Iron", "North", "Pioneer", "Silver", "Summit", "Vertex"],
-        "b": ["core", "field", "line", "logic", "point", "soft", "tech", "ware", "wave", "works"]
+        "a": ["Acme", "Apex", "Atlas", "Aurora", "Blue", "Bright", "Cedar", "Crest", "Delta", "Eagle", "Ever", "Fair", "Falcon", "Iron", "Maple", "North", "Onyx", "Pioneer", "Polar", "Prime", "Quartz", "River", "Silver", "Solar", "Summit", "Sun", "Swift", "True", "Vertex", "West"],
+        "b": ["bridge", "core", "field", "flow", "forge", "gate", "grid", "hub", "line", "logic", "mark", "nest", "path", "point", "scape", "soft", "span", "spark", "stone", "tech", "ware", "wave", "works", "yard"]
       },
-      ["Atlas Industries", "Hudson Partners", "Liberty Holdings", "Riverside", "Smith & Sons"]
+      ["Atlas Industries", "Beacon Labs", "Cedar & Vine", "Compass Group", "Evergreen Trading", "Harbor Logistics", "Hudson Partners", "Liberty Holdings", "Meridian Capital", "Northgate Studios", "Pinnacle Systems", "Riverside", "Sequoia Foods", "Smith & Sons", "Stonebridge Ventures", "Sunrise Bakery", "Wexford Holdings"]
     ],
-    "suffix": ["Co.", "Corp.", "Group", "Inc.", "LLC", "Ltd."]
+    "suffix": ["Co.", "Corp.", "Group", "Inc.", "Inc.", "LLC", "LLC", "Ltd."]
   }
 ]

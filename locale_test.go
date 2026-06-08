@@ -65,13 +65,10 @@ func TestShippedSwedishAddress(t *testing.T) {
 		}
 	}
 
-	localities := map[string]bool{
-		"Göteborg": true, "Linköping": true, "Malmö": true, "Stockholm": true,
-		"Uppsala": true, "Västerås": true, "Örebro": true,
-	}
+	locality := regexp.MustCompile(`^\p{L}+( \p{L}+)*$`)
 	for i := 0; i < 30; i++ {
-		if c := fake(t, f, "address.locality"); !localities[c] {
-			t.Fatalf("locality %q not in sv_SE data", c)
+		if c := fake(t, f, "address.locality"); !locality.MatchString(c) {
+			t.Fatalf("locality %q is not a Swedish place name", c)
 		}
 	}
 }

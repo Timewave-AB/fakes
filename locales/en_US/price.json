@@ -1,7 +1,19 @@
 [
   {
     "format": "${amt}.{cents}",
-    "amt": [{ "format": "10", "weight": 3 }, { "format": "100", "weight": 2 }, { "format": "1#,000" }],
-    "cents": [{ "format": "00" }]
+    "amt": [
+      { "format": "1", "weight": 2 },
+      { "format": "10", "weight": 4 },
+      { "format": "100", "weight": 3 },
+      { "format": "1#,000", "weight": 1 },
+      { "format": "10#,000", "weight": 0.4 },
+      { "format": "100#,000", "weight": 0.1 }
+    ],
+    "cents": [
+      { "format": "00", "weight": 3 },
+      "49",
+      "95",
+      "99"
+    ]
   }
 ]

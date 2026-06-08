@@ -158,32 +158,27 @@ func TestLongStringList(t *testing.T) {
 
 // --- composition against the shipped sv_SE data ---
 
+// swedishName matches one or more letter-words, optionally space/hyphen joined
+// ("Storgatan", "Norra Promenaden", "von Flemming"). Used by the composition
+// tests so shipped name lists can grow without re-enumerating them here.
+var swedishName = regexp.MustCompile(`^\p{L}+([ -]\p{L}+)*$`)
+
 func TestShippedStreetComposition(t *testing.T) {
-	// street is a choice of a composed {first}{last} template and a literal list;
-	// every result must be one of the valid combinations or literals.
-	valid := map[string]bool{"Vintjärn": true, "Staby": true, "Promenaden": true}
-	for _, first := range []string{"Bergs", "Kungs", "Stor"} {
-		for _, last := range []string{"gatan", "vägen", "stigen"} {
-			valid[first+last] = true
-		}
-	}
+	// street is a choice of composed {first}{last} templates and literal names.
 	f := newFakes(t, "locales/sv_SE", WithSeed(5))
 	for i := 0; i < 300; i++ {
-		if s := fake(t, f, "address.street"); !valid[s] {
-			t.Fatalf("street %q is not a valid composition or literal", s)
+		if s := fake(t, f, "address.street"); !swedishName.MatchString(s) {
+			t.Fatalf("street %q is not a Swedish street name", s)
 		}
 	}
 }
 
 func TestShippedLastNameComposition(t *testing.T) {
-	valid := map[string]bool{"Berg": true, "von Flemming": true, "Eismar": true}
-	for _, first := range []string{"Ander", "Erik", "Johan", "Karl", "Lar"} {
-		valid[first+"sson"] = true
-	}
+	// last is a choice of patronymic {first}sson templates and literal surnames.
 	f := newFakes(t, "locales/sv_SE", WithSeed(6))
 	for i := 0; i < 300; i++ {
-		if s := fake(t, f, "person.last"); !valid[s] {
-			t.Fatalf("last name %q not in valid set", s)
+		if s := fake(t, f, "person.last"); !swedishName.MatchString(s) {
+			t.Fatalf("last name %q is not a Swedish surname", s)
 		}
 	}
 }

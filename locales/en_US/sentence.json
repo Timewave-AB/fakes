@@ -1,10 +1,31 @@
 [
   {
-    "format": "{lead} {adj} {noun} {verb} {prep} {adj} {noun}.",
-    "lead": ["A", "Each", "Every", "One", "The"],
-    "adj": ["ancient", "bright", "fierce", "golden", "lazy", "modern", "quick", "silent"],
-    "noun": ["engine", "forest", "fox", "garden", "harbor", "mountain", "river", "signal"],
-    "verb": ["builds", "carries", "crosses", "follows", "guards", "reveals", "shapes"],
-    "prep": ["across", "beneath", "beyond", "over", "through"]
+    "format": "{lead} {adj} {noun} {verb} {prep} {adj} {noun}{end}",
+    "weight": 4,
+    "lead": ["A", "Another", "Each", "Every", "His", "Her", "No", "One", "Our", "Some", "That", "The", "Their", "This"],
+    "adj": ["amber", "ancient", "bold", "bright", "brittle", "calm", "crimson", "distant", "eager", "fading", "fierce", "fleeting", "fragile", "frozen", "gentle", "gilded", "golden", "grand", "hidden", "humble", "idle", "lazy", "lonely", "luminous", "modern", "mossy", "northern", "patient", "quick", "quiet", "radiant", "restless", "rugged", "rustic", "sacred", "silent", "solemn", "stormy", "stubborn", "tireless", "velvet", "wandering", "weary", "weathered", "wild", "wise"],
+    "noun": ["anchor", "archer", "beacon", "bridge", "captain", "cavern", "cottage", "ember", "engine", "falcon", "ferry", "forest", "fox", "garden", "glacier", "harbor", "hermit", "hollow", "island", "lantern", "lighthouse", "mariner", "meadow", "mountain", "orchard", "otter", "pilgrim", "prairie", "quarry", "raven", "ridge", "river", "sailor", "scholar", "signal", "sparrow", "stranger", "summit", "thicket", "tower", "traveler", "valley", "voyager", "wanderer", "willow", "woodland"],
+    "verb": ["abandons", "anchors", "awakens", "befriends", "builds", "calms", "carries", "chases", "conceals", "crosses", "embraces", "follows", "gathers", "greets", "guards", "guides", "haunts", "heralds", "honors", "kindles", "leads", "mends", "mirrors", "outlasts", "ponders", "reveals", "salutes", "shapes", "shelters", "shields", "summons", "tends", "traces", "weathers"],
+    "prep": ["above", "across", "against", "alongside", "amid", "around", "beneath", "beside", "between", "beyond", "near", "over", "past", "through", "toward", "under", "within"],
+    "end": [".", ".", ".", ".", "!"]
+  },
+  {
+    "format": "{lead} {noun} {adv} {verb} {prep} {adj} {noun}{end}",
+    "weight": 2,
+    "lead": ["A", "Another", "Each", "Every", "His", "Her", "One", "Our", "Some", "That", "The", "Their", "This"],
+    "adv": ["always", "barely", "boldly", "calmly", "eagerly", "gently", "gracefully", "often", "proudly", "quietly", "rarely", "slowly", "softly", "swiftly", "wearily"],
+    "noun": ["beacon", "captain", "engine", "falcon", "ferry", "forest", "harbor", "hermit", "lantern", "mariner", "meadow", "mountain", "pilgrim", "raven", "river", "sailor", "scholar", "sparrow", "stranger", "tower", "traveler", "voyager", "wanderer"],
+    "verb": ["builds", "carries", "chases", "crosses", "follows", "gathers", "guards", "guides", "leads", "mirrors", "outlasts", "reveals", "shapes", "shelters", "summons", "tends", "traces", "weathers"],
+    "adj": ["ancient", "bright", "distant", "fierce", "fragile", "gentle", "golden", "hidden", "lonely", "quiet", "restless", "rugged", "silent", "stormy", "weary", "wild"],
+    "prep": ["across", "against", "alongside", "amid", "beneath", "between", "beyond", "near", "over", "past", "through", "toward", "within"],
+    "end": [".", ".", ".", "!"]
+  },
+  {
+    "format": "{q} {adj} {noun} {verb} {prep} {adj} {noun}?",
+    "q": ["Can each", "Could a", "Did the", "Does every", "How does the", "Should any", "When will a", "Where does the", "Why does that", "Will any", "Would some"],
+    "adj": ["ancient", "bright", "distant", "fierce", "gentle", "golden", "hidden", "lonely", "restless", "rugged", "silent", "weary", "wild"],
+    "noun": ["beacon", "captain", "falcon", "harbor", "lantern", "mariner", "meadow", "raven", "river", "sailor", "scholar", "stranger", "tower", "wanderer"],
+    "verb": ["follow", "gather", "guard", "guide", "lead", "mirror", "outlast", "reveal", "shelter", "summon", "trace", "weather"],
+    "prep": ["across", "against", "beneath", "between", "beyond", "near", "over", "past", "through", "toward"]
   }
 ]

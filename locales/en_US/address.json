@@ -4,28 +4,21 @@
     "street": [
       {
         "format": "{name} {suffix}",
-        "name": ["Cedar", "Elm", "Lincoln", "Maple", "Oak", "Pine", "Washington"],
-        "suffix": ["Street", "Avenue", "Drive", "Lane"]
+        "name": ["Adams", "Ashby", "Aspen", "Bay", "Birch", "Bridge", "Cedar", "Chestnut", "Church", "Clark", "Cypress", "Dogwood", "Elm", "Forest", "Franklin", "Garden", "Grove", "Hawthorn", "Hickory", "Highland", "Jackson", "Jefferson", "Juniper", "Lake", "Laurel", "Liberty", "Lincoln", "Madison", "Magnolia", "Maple", "Market", "Meadow", "Mill", "Oak", "Park", "Pine", "Poplar", "Prospect", "Ridge", "River", "Spruce", "Sunset", "Sycamore", "Union", "Walnut", "Washington", "Willow", "Wilson"],
+        "suffix": ["Avenue", "Boulevard", "Circle", "Court", "Drive", "Lane", "Place", "Road", "Street", "Terrace", "Trail", "Way"]
       }
     ],
     "street-number": [
-      {
-        "format": "10"
-      },
-      {
-        "format": "100"
-      },
-      {
-        "format": "1000",
-        "weight": 0.5
-      }
+      { "format": "10" },
+      { "format": "100", "weight": 2 },
+      { "format": "1000", "weight": 0.5 },
+      { "format": "10100", "weight": 0.3 }
     ],
-    "locality": ["Austin", "Boston", "Chicago", "Denver", "Houston", "Phoenix", "Portland", "Seattle"],
-    "region": ["CA", "IL", "MA", "NY", "TX", "WA"],
+    "locality": ["Albany", "Atlanta", "Austin", "Baltimore", "Boston", "Charlotte", "Chicago", "Cincinnati", "Cleveland", "Columbus", "Dallas", "Denver", "Detroit", "El Paso", "Fort Worth", "Fresno", "Houston", "Indianapolis", "Jacksonville", "Kansas City", "Las Vegas", "Long Beach", "Los Angeles", "Memphis", "Mesa", "Miami", "Milwaukee", "Minneapolis", "Nashville", "New Orleans", "Oakland", "Oklahoma City", "Omaha", "Orlando", "Philadelphia", "Phoenix", "Pittsburgh", "Portland", "Raleigh", "Sacramento", "San Antonio", "San Diego", "San Jose", "Seattle", "St. Louis", "Tampa", "Tucson", "Tulsa"],
+    "region": ["AL", "AZ", "CA", "CO", "CT", "FL", "GA", "IL", "IN", "KY", "LA", "MA", "MD", "MI", "MN", "MO", "NC", "NJ", "NV", "NY", "OH", "OK", "OR", "PA", "TN", "TX", "VA", "WA", "WI"],
     "postal-code": [
-      {
-        "format": "10000"
-      }
+      { "format": "10000" },
+      { "format": "10000-0000", "weight": 0.3 }
     ]
   }
 ]

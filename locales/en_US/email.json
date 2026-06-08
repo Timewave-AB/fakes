@@ -4,12 +4,26 @@
     "local": [
       {
         "format": "{first}{sep}{last}{n}",
-        "first": ["james", "mary", "john", "patricia", "robert", "linda", "michael", "emma", "david", "olivia"],
-        "last": ["smith", "johnson", "williams", "brown", "jones", "garcia", "miller", "davis", "wilson", "taylor"],
-        "sep": [".", "_", "."],
-        "n": ["", "", "1", "7", "42"]
+        "weight": 3,
+        "first": ["alex", "amelia", "andrew", "anna", "ava", "benjamin", "carter", "charlotte", "chloe", "chris", "daniel", "david", "dylan", "elijah", "ella", "emily", "emma", "ethan", "evelyn", "gabriel", "grace", "hannah", "harper", "henry", "isaac", "isabella", "jack", "jacob", "james", "john", "joseph", "julia", "leah", "liam", "linda", "lily", "logan", "lucas", "luke", "mary", "mason", "matthew", "maya", "mia", "michael", "natalie", "noah", "nora", "oliver", "olivia", "owen", "patricia", "robert", "ryan", "samuel", "sarah", "sofia", "sophia", "thomas", "victoria", "william", "zoe"],
+        "last": ["adams", "allen", "anderson", "bailey", "baker", "bennett", "brooks", "brown", "campbell", "carter", "clark", "collins", "cook", "cooper", "davis", "edwards", "evans", "fisher", "flores", "foster", "garcia", "gonzalez", "gray", "green", "hall", "harris", "hayes", "hernandez", "hill", "howard", "hughes", "jackson", "jenkins", "johnson", "jones", "kelly", "king", "lee", "lewis", "long", "lopez", "martin", "martinez", "miller", "mitchell", "moore", "morgan", "morris", "murphy", "nelson", "parker", "perez", "perry", "phillips", "powell", "price", "reed", "reyes", "rivera", "roberts", "robinson", "rodriguez", "rogers", "ross", "russell", "sanchez", "sanders", "scott", "smith", "stewart", "sullivan", "taylor", "thomas", "thompson", "torres", "turner", "walker", "ward", "watson", "white", "williams", "wilson", "wood", "wright", "young"],
+        "sep": [".", ".", "_", "-", ""],
+        "n": ["", "", "", "1", "7", "21", "42", "88", "99", "2024"]
+      },
+      {
+        "format": "{adj}{noun}{n}",
+        "weight": 2,
+        "adj": ["blue", "cool", "dark", "epic", "fast", "fluffy", "frosty", "funky", "fuzzy", "golden", "grumpy", "happy", "hyper", "jazzy", "lazy", "lucky", "mega", "mighty", "neon", "ninja", "quiet", "rad", "rusty", "salty", "shiny", "silent", "sleepy", "snappy", "sneaky", "spicy", "super", "swift", "turbo", "wild", "witty", "zany"],
+        "noun": ["badger", "banana", "comet", "dragon", "falcon", "ferret", "goblin", "hamster", "koala", "llama", "mango", "muffin", "narwhal", "ninja", "noodle", "otter", "panda", "penguin", "pickle", "pirate", "pixel", "potato", "pretzel", "raccoon", "raptor", "robot", "taco", "toast", "trunk", "turtle", "unicorn", "viking", "waffle", "walrus", "wizard", "yeti"],
+        "n": ["", "", "7", "13", "14", "42", "77", "99", "123", "420", "2024"]
+      },
+      {
+        "format": "{w}{n}",
+        "weight": 1,
+        "w": ["blooper", "blupp", "boop", "byteme", "coolcat", "derpina", "doomguy", "epicgamer", "fizzbuzz", "glitchlord", "glorptron", "gronkzilla", "kapowski", "lazerwolf", "megashark", "mooncat", "narfle", "nightowl", "noodlemaster", "oofster", "pixelfox", "pixelpusher", "plonkers", "retrowave", "snork", "splatmaster", "stardust", "superdog", "voidwalker", "vroom", "wahoo", "waooooh", "wootwoot", "yeetus", "zapper", "zoomzoom"],
+        "n": ["", "", "7", "14", "42", "69", "99", "123", "420", "1337", "2000", "9000"]
       }
     ],
-    "domain": ["example.com", "example.org", "example.net", "mail.example.com"]
+    "domain": ["example.com", "example.org", "example.net", "example.io", "example.co", "example.dev", "example.app", "mail.example.com", "mail.example.org", "webmail.example.net", "inbox.example.com", "post.example.org", "demo.example.net", "test.example.org", "dev.example.io"]
   }
 ]

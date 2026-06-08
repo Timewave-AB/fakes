@@ -1,7 +1,12 @@
 [
   {
     "format": "https://{host}{path}",
-    "host": ["example.com", "www.example.com", "example.org", "blogg.example.net", "butik.example.com", "example.se"],
-    "path": ["", { "format": "/{seg}", "seg": ["om", "produkter", "blogg", "kontakt", "hjalp", "artiklar", "logga-in", "nyheter", "start", "sok"] }]
+    "host": ["example.com", "www.example.com", "example.org", "example.se", "www.example.se", "blogg.example.net", "butik.example.com", "shop.example.se", "api.example.se", "dokument.example.org", "nyheter.example.net", "mail.example.se"],
+    "path": [
+      "",
+      "",
+      { "format": "/{seg}", "seg": ["om", "om-oss", "produkter", "blogg", "kontakt", "hjalp", "artiklar", "logga-in", "nyheter", "start", "sok", "kundvagn", "kassa", "villkor", "integritet", "priser", "tjanster", "foretag", "karriar", "support", "konto", "installningar", "registrera"] },
+      { "format": "/{seg}/{sub}", "weight": 0.5, "seg": ["blogg", "produkter", "hjalp", "dokument", "kategori"], "sub": ["oversikt", "kom-igang", "guide", "2024", "senaste", "arkiv", "detaljer"] }
+    ]
   }
 ]

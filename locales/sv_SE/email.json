@@ -4,12 +4,26 @@
     "local": [
       {
         "format": "{first}{sep}{last}{n}",
-        "first": ["erik", "anna", "lars", "karin", "johan", "sara", "anders", "emma", "per", "sofia"],
-        "last": ["andersson", "johansson", "karlsson", "nilsson", "eriksson", "larsson", "olsson", "persson", "svensson", "gustafsson"],
-        "sep": [".", "_", "."],
-        "n": ["", "", "1", "7", "42"]
+        "weight": 3,
+        "first": ["agnes", "alice", "anders", "anna", "anton", "asa", "axel", "bjorn", "david", "ebba", "elin", "elsa", "emil", "emma", "erik", "ester", "frida", "fredrik", "gustav", "hampus", "hanna", "henrik", "hugo", "ida", "ingrid", "isak", "johan", "jonas", "julia", "karin", "kjell", "klara", "lars", "lena", "linus", "magnus", "maja", "mats", "mattias", "mikael", "moa", "nils", "olle", "oskar", "par", "patrik", "per", "pontus", "rasmus", "samuel", "sara", "sofia", "soren", "stina", "sven", "tobias", "tuva", "viktor", "wilma", "ylva"],
+        "last": ["ahlberg", "andersson", "berg", "berglund", "bergstrom", "blom", "dahlberg", "eklund", "ekstrom", "engstrom", "eriksson", "falk", "forsberg", "fredriksson", "gustafsson", "hellstrom", "holm", "holmberg", "jakobsson", "johansson", "jonsson", "karlsson", "larsson", "lind", "lindberg", "lindgren", "lindqvist", "lundberg", "lundgren", "lundqvist", "magnusson", "nilsson", "norberg", "nystrom", "olsson", "persson", "petersson", "samuelsson", "sandberg", "sjoberg", "sjogren", "strand", "strom", "sundberg", "svensson", "soderberg", "wallin", "aberg", "oberg"],
+        "sep": [".", ".", "_", "-", ""],
+        "n": ["", "", "", "1", "7", "42", "88", "99"]
+      },
+      {
+        "format": "{adj}{noun}{n}",
+        "weight": 2,
+        "adj": ["blixt", "busig", "cool", "frisk", "galen", "glad", "kaxig", "kvick", "listig", "lugn", "mega", "modig", "mysig", "pigg", "rolig", "smart", "snabb", "stark", "super", "trygg", "turbo", "varm", "vild"],
+        "noun": ["abborren", "bamsen", "bjorn", "drake", "ekorre", "falken", "grodan", "hund", "igelkott", "kaninen", "katt", "korpen", "krabban", "musen", "nallen", "ninja", "orn", "panda", "pirat", "raven", "robot", "sillen", "sparven", "uggla", "varg", "vargen"],
+        "n": ["", "", "7", "13", "14", "42", "77", "99", "123", "420", "2024"]
+      },
+      {
+        "format": "{w}{n}",
+        "weight": 1,
+        "w": ["blip", "blupp", "boop", "busigekorre", "coolkatten", "doot", "fizz", "floof", "galnaalgen", "gladgrodan", "glorp", "kapow", "kazoo", "kvickharen", "listigaraven", "megaraven", "mysmoln", "nattugglan", "pew", "pigghund", "pixelfox", "plonk", "rolighund", "snabbkatten", "snork", "splat", "superhunden", "turbohund", "vildvargen", "vroom", "wahoo", "waooooh", "woot", "yeet", "zap", "zoom"],
+        "n": ["", "", "7", "14", "42", "69", "99", "123", "420", "1337", "2000", "9000"]
       }
     ],
-    "domain": ["example.com", "example.org", "example.net", "mail.example.com"]
+    "domain": ["example.com", "example.org", "example.net", "example.se", "example.nu", "example.io", "mail.example.se", "webmail.example.se", "inkorg.example.se", "post.example.se", "demo.example.se", "test.example.org", "dev.example.se"]
   }
 ]

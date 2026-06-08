@@ -1,10 +1,20 @@
 [
   {
-    "format": "{lead} {adj} {noun} {verb} {prep} {adj} {noun}.",
-    "lead": ["Alla", "Den", "En", "Ett", "Varje"],
-    "adj": ["gamla", "gyllene", "ljusa", "mörka", "snabba", "stora", "tysta", "vilda"],
-    "noun": ["berget", "floden", "hamnen", "motorn", "räven", "signalen", "skogen", "trädgården"],
-    "verb": ["bygger", "bär", "följer", "formar", "korsar", "når", "vaktar"],
-    "prep": ["bortom", "genom", "längs", "under", "över"]
+    "format": "{lead} {adj} {noun} {verb} {prep} {adj} {noun}{end}",
+    "weight": 4,
+    "lead": ["Alla", "Den", "Denna", "Det", "En", "Ett", "Ingen", "Många", "Något", "Varenda", "Varje", "Vår", "Våra"],
+    "adj": ["blåa", "branta", "djupa", "dunkla", "ensamma", "fjärran", "forna", "gamla", "glömda", "gröna", "gyllene", "heliga", "kalla", "ljusa", "lugna", "mäktiga", "mörka", "nordliga", "rofyllda", "ruvande", "snabba", "starka", "stilla", "stora", "susande", "tidlösa", "tysta", "vackra", "varma", "vidsträckta", "vilda", "vintriga", "väldiga", "ödsliga"],
+    "noun": ["arkivet", "berget", "bäcken", "dalen", "eken", "fjället", "floden", "fyren", "fågeln", "gården", "glaciären", "hamnen", "holmen", "klippan", "kusten", "lampan", "lyktan", "motorn", "måsen", "ravinen", "räven", "seglaren", "signalen", "sjön", "skogen", "slätten", "stigen", "stjärnan", "stranden", "tornet", "trädgården", "vandraren", "vinden", "vågen", "ängen"],
+    "verb": ["anar", "bevakar", "bygger", "bär", "döljer", "famnar", "följer", "formar", "gömmer", "hälsar", "korsar", "leder", "lockar", "lyser", "minns", "möter", "når", "skyddar", "speglar", "söker", "tänder", "vaktar", "väcker", "värnar", "återvänder"],
+    "prep": ["bakom", "bland", "bortom", "framför", "genom", "intill", "kring", "längs", "mot", "nära", "ovanför", "runt", "under", "vid", "över"],
+    "end": [".", ".", ".", "!"]
+  },
+  {
+    "format": "{q} {adj} {noun} {verb} {prep} {noun}?",
+    "q": ["Hur formar den", "Kan en", "Når den", "När bygger ett", "Var möter den", "Varför döljer varje", "Vart följer den", "Vilken väg leder den"],
+    "adj": ["branta", "ensamma", "forna", "gamla", "gyllene", "ljusa", "mörka", "snabba", "stilla", "tysta", "vidsträckta", "vilda"],
+    "noun": ["berget", "fyren", "glaciären", "hamnen", "klippan", "räven", "seglaren", "skogen", "stjärnan", "vandraren", "vågen", "ängen"],
+    "verb": ["famna", "följa", "gömma", "korsa", "leda", "möta", "nå", "skydda", "spegla", "söka", "vakta", "värna"],
+    "prep": ["bakom", "bortom", "genom", "kring", "längs", "mot", "nära", "ovanför", "runt", "under", "över"]
   }
 ]

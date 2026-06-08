@@ -1,14 +1,21 @@
 [
-	{
-		"format": "{prefix}{femalefirst|malefirst} {last}",
-    "femalefirst": ["Anna", "Astrid", "Elin", "Emma", "Ingrid", "Karin", "Linnéa", "Maria", "Sara", "Sofia"],
-    "malefirst": ["Anders", "Erik", "Gustav", "Johan", "Karl", "Lars", "Mikael", "Nils", "Oskar", "Per"],
+  {
+    "format": "{prefix}{femalefirst|malefirst} {last}",
+    "femalefirst": ["Agnes", "Alice", "Alicia", "Alma", "Amanda", "Anna", "Astrid", "Cornelia", "Ebba", "Elin", "Ella", "Ellen", "Elsa", "Emilia", "Emma", "Ester", "Eva", "Frida", "Hanna", "Hedda", "Ida", "Ingrid", "Isabelle", "Julia", "Karin", "Klara", "Kristina", "Lena", "Linnéa", "Lova", "Maja", "Maria", "Moa", "Molly", "Märta", "Nellie", "Nora", "Olivia", "Saga", "Sara", "Selma", "Signe", "Siri", "Sofia", "Stina", "Tilde", "Tuva", "Wilma", "Ylva", "Åsa"],
+    "malefirst": ["Adam", "Albin", "Alexander", "Alfred", "Anders", "Anton", "Arvid", "Axel", "Bengt", "Bo", "Carl", "David", "Edvin", "Elias", "Emil", "Erik", "Filip", "Folke", "Fredrik", "Gustav", "Göran", "Hampus", "Hans", "Henrik", "Hugo", "Isak", "Johan", "Jonas", "Karl", "Kjell", "Lars", "Leo", "Linus", "Love", "Magnus", "Mats", "Mattias", "Mikael", "Nils", "Olle", "Oskar", "Otto", "Patrik", "Per", "Pontus", "Rasmus", "Samuel", "Sixten", "Stefan", "Sten", "Sven", "Theodor", "Tobias", "Viktor", "William", "Åke"],
     "last": [
       {
         "format": "{first}sson",
-        "first": ["Ander", "Erik", "Johan", "Karl", "Lar"]
+        "weight": 5,
+        "first": ["Ander", "Arvid", "Bengt", "Daniel", "David", "Erik", "Fredrik", "Gustaf", "Henrik", "Håkan", "Isak", "Jakob", "Johan", "Jon", "Jöns", "Karl", "Lar", "Magnu", "Matt", "Mikael", "Mårten", "Nil", "Ol", "Per", "Petter", "Samuel", "Sven"]
       },
-      ["Berg", "von Flemming", "Eismar"]
+      {
+        "format": "{first}{last}",
+        "weight": 4,
+        "first": ["Ahl", "Berg", "Blom", "Ceder", "Dahl", "Ek", "Eng", "Falk", "Fors", "Gran", "Hag", "Hed", "Hell", "Holm", "Lind", "Lund", "Mal", "Norr", "Ny", "Rosen", "Sand", "Sjö", "Skog", "Söder", "Sten", "Strand", "Sund", "Wall", "Wik", "Öst"],
+        "last": ["berg", "blad", "crona", "dahl", "ed", "fors", "gren", "holm", "in", "kvist", "löf", "lund", "man", "mark", "qvist", "roth", "stedt", "sten", "strand", "ström", "vall"]
+      },
+      ["Berg", "Blom", "Eismar", "Falk", "Holm", "Lind", "Norberg", "Strand", "Ström", "von Flemming", "Åberg", "Öberg"]
     ],
     "prefix": [
       "",

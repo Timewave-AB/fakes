@@ -1,7 +1,12 @@
 [
   {
     "format": "https://{host}{path}",
-    "host": ["example.com", "www.example.com", "example.org", "blog.example.net", "shop.example.com", "example.io"],
-    "path": ["", { "format": "/{seg}", "seg": ["about", "account", "blog", "contact", "help", "items", "login", "news", "products", "search"] }]
+    "host": ["example.com", "www.example.com", "example.org", "www.example.org", "example.net", "example.io", "example.co", "blog.example.com", "blog.example.net", "shop.example.com", "store.example.org", "app.example.io", "api.example.com", "docs.example.org", "news.example.net", "mail.example.com"],
+    "path": [
+      "",
+      "",
+      { "format": "/{seg}", "seg": ["about", "account", "blog", "careers", "cart", "categories", "checkout", "contact", "dashboard", "downloads", "events", "faq", "features", "help", "home", "items", "login", "news", "order", "pricing", "privacy", "products", "profile", "register", "search", "settings", "signup", "support", "terms", "welcome"] },
+      { "format": "/{seg}/{sub}", "weight": 0.5, "seg": ["blog", "docs", "help", "products", "category", "user"], "sub": ["getting-started", "overview", "guide", "2024", "latest", "popular", "archive", "details"] }
+    ]
   }
 ]
