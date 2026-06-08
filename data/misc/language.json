@@ -1,0 +1,18 @@
+[
+  { "format": "{name}", "name": ["Arabic"], "code": ["ar"] },
+  { "format": "{name}", "name": ["Chinese"], "code": ["zh"] },
+  { "format": "{name}", "name": ["Danish"], "code": ["da"] },
+  { "format": "{name}", "name": ["Dutch"], "code": ["nl"] },
+  { "format": "{name}", "name": ["English"], "code": ["en"] },
+  { "format": "{name}", "name": ["Finnish"], "code": ["fi"] },
+  { "format": "{name}", "name": ["French"], "code": ["fr"] },
+  { "format": "{name}", "name": ["German"], "code": ["de"] },
+  { "format": "{name}", "name": ["Italian"], "code": ["it"] },
+  { "format": "{name}", "name": ["Japanese"], "code": ["ja"] },
+  { "format": "{name}", "name": ["Norwegian"], "code": ["no"] },
+  { "format": "{name}", "name": ["Polish"], "code": ["pl"] },
+  { "format": "{name}", "name": ["Portuguese"], "code": ["pt"] },
+  { "format": "{name}", "name": ["Russian"], "code": ["ru"] },
+  { "format": "{name}", "name": ["Spanish"], "code": ["es"] },
+  { "format": "{name}", "name": ["Swedish"], "code": ["sv"] }
+]

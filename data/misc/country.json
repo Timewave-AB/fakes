@@ -1,0 +1,22 @@
+[
+  { "format": "{name}", "name": ["Australia"], "alpha2": ["AU"], "alpha3": ["AUS"] },
+  { "format": "{name}", "name": ["Brazil"], "alpha2": ["BR"], "alpha3": ["BRA"] },
+  { "format": "{name}", "name": ["Canada"], "alpha2": ["CA"], "alpha3": ["CAN"] },
+  { "format": "{name}", "name": ["China"], "alpha2": ["CN"], "alpha3": ["CHN"] },
+  { "format": "{name}", "name": ["Denmark"], "alpha2": ["DK"], "alpha3": ["DNK"] },
+  { "format": "{name}", "name": ["Finland"], "alpha2": ["FI"], "alpha3": ["FIN"] },
+  { "format": "{name}", "name": ["France"], "alpha2": ["FR"], "alpha3": ["FRA"] },
+  { "format": "{name}", "name": ["Germany"], "alpha2": ["DE"], "alpha3": ["DEU"] },
+  { "format": "{name}", "name": ["India"], "alpha2": ["IN"], "alpha3": ["IND"] },
+  { "format": "{name}", "name": ["Italy"], "alpha2": ["IT"], "alpha3": ["ITA"] },
+  { "format": "{name}", "name": ["Japan"], "alpha2": ["JP"], "alpha3": ["JPN"] },
+  { "format": "{name}", "name": ["Mexico"], "alpha2": ["MX"], "alpha3": ["MEX"] },
+  { "format": "{name}", "name": ["Netherlands"], "alpha2": ["NL"], "alpha3": ["NLD"] },
+  { "format": "{name}", "name": ["Norway"], "alpha2": ["NO"], "alpha3": ["NOR"] },
+  { "format": "{name}", "name": ["Poland"], "alpha2": ["PL"], "alpha3": ["POL"] },
+  { "format": "{name}", "name": ["Spain"], "alpha2": ["ES"], "alpha3": ["ESP"] },
+  { "format": "{name}", "name": ["Sweden"], "alpha2": ["SE"], "alpha3": ["SWE"] },
+  { "format": "{name}", "name": ["Switzerland"], "alpha2": ["CH"], "alpha3": ["CHE"] },
+  { "format": "{name}", "name": ["United Kingdom"], "alpha2": ["GB"], "alpha3": ["GBR"] },
+  { "format": "{name}", "name": ["United States"], "alpha2": ["US"], "alpha3": ["USA"] }
+]

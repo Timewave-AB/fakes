@@ -164,10 +164,19 @@ Swedish personnummer): `address`, `color`, `company`, `date`, `email`, `ip`,
 `person`, `phone`, `price`, `sentence`, `ssn`, `time`, `url`, `username`,
 `version`, `word`.
 
-`data/misc` carries locale-neutral categories: `uuid` (a proper random v4),
-`mac`, and `creditcard` (per-network numbers ending in a valid `{luhn()}` digit).
-A time-ordered v7 UUID can't be expressed as data, so it's the `{uuid()}` builtin
-instead (see **Functions**).
+`data/misc` carries locale-neutral categories — universal data that isn't tied to
+a language or region:
+
+- ids & networking: `uuid` (a proper random v4), `mac`, `creditcard` (per-network
+  numbers ending in a valid `{luhn()}` digit)
+- reference codes: `currency` (ISO 4217), `country` (ISO 3166), `language` (ISO
+  639), `timezone` (IANA)
+- web & systems: `mimetype`, `httpstatus`, `useragent`
+- misc: `coordinate` (a lat/long point), `emoji`, `car`
+
+Many carry dotted sub-fields — `currency.symbol`, `country.alpha2`,
+`mimetype.ext`, `httpstatus.code`, `car.maker`. A time-ordered v7 UUID can't be
+expressed as data, so it's the `{uuid()}` builtin instead (see **Functions**).
 
 ## Data format
 

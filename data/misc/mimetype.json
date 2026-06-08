@@ -1,0 +1,17 @@
+[
+  { "format": "{type}", "type": ["application/gzip"], "ext": [".gz"] },
+  { "format": "{type}", "type": ["application/json"], "ext": [".json"] },
+  { "format": "{type}", "type": ["application/pdf"], "ext": [".pdf"] },
+  { "format": "{type}", "type": ["application/xml"], "ext": [".xml"] },
+  { "format": "{type}", "type": ["application/zip"], "ext": [".zip"] },
+  { "format": "{type}", "type": ["audio/mpeg"], "ext": [".mp3"] },
+  { "format": "{type}", "type": ["image/gif"], "ext": [".gif"] },
+  { "format": "{type}", "type": ["image/jpeg"], "ext": [".jpg"] },
+  { "format": "{type}", "type": ["image/png"], "ext": [".png"] },
+  { "format": "{type}", "type": ["image/svg+xml"], "ext": [".svg"] },
+  { "format": "{type}", "type": ["image/webp"], "ext": [".webp"] },
+  { "format": "{type}", "type": ["text/csv"], "ext": [".csv"] },
+  { "format": "{type}", "type": ["text/html"], "ext": [".html"] },
+  { "format": "{type}", "type": ["text/plain"], "ext": [".txt"] },
+  { "format": "{type}", "type": ["video/mp4"], "ext": [".mp4"] }
+]

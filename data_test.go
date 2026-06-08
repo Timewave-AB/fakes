@@ -2,6 +2,7 @@ package fakes
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -80,6 +81,48 @@ func TestShippedMiscCategories(t *testing.T) {
 		}
 		if v := fake(t, f, "creditcard"); len(v) < 15 || len(v) > 16 || !luhnValid(v) {
 			t.Fatalf("creditcard %q is not a 15-16 digit Luhn-valid number", v)
+		}
+	}
+}
+
+// TestShippedMiscReferenceData covers the locale-neutral reference categories:
+// codes follow their standard shape, dotted sub-paths resolve, emoji is a real
+// glyph, and a coordinate parses to a point within geographic bounds.
+func TestShippedMiscReferenceData(t *testing.T) {
+	f := newFakes(t, "data/misc", WithSeed(1))
+	re := map[string]*regexp.Regexp{
+		"currency":        regexp.MustCompile(`^[A-Z]{3}$`),
+		"currency.name":   regexp.MustCompile(`\p{L}`),
+		"currency.symbol": regexp.MustCompile(`^\S+$`),
+		"country":         regexp.MustCompile(`\p{L}`),
+		"country.alpha2":  regexp.MustCompile(`^[A-Z]{2}$`),
+		"country.alpha3":  regexp.MustCompile(`^[A-Z]{3}$`),
+		"language":        regexp.MustCompile(`\p{L}`),
+		"language.code":   regexp.MustCompile(`^[a-z]{2}$`),
+		"timezone":        regexp.MustCompile(`^([A-Za-z_]+(/[A-Za-z_]+)+|UTC)$`),
+		"mimetype":        regexp.MustCompile(`^[a-z]+/[a-z0-9.+-]+$`),
+		"mimetype.ext":    regexp.MustCompile(`^\.[a-z0-9]+$`),
+		"httpstatus":      regexp.MustCompile(`^[1-5]\d{2} \S.*$`),
+		"httpstatus.code": regexp.MustCompile(`^[1-5]\d{2}$`),
+		"useragent":       regexp.MustCompile(`^Mozilla/5\.0 .+`),
+		"car":             regexp.MustCompile(`^\S.* \S`),
+		"car.maker":       regexp.MustCompile(`^\S`),
+	}
+	for i := 0; i < 100; i++ {
+		for p, rx := range re {
+			if v := fake(t, f, p); !rx.MatchString(v) {
+				t.Fatalf("misc %s = %q, want %s", p, v, rx)
+			}
+		}
+		if e := fake(t, f, "emoji"); e == "" || []rune(e)[0] < 128 {
+			t.Fatalf("emoji %q is not a non-ASCII glyph", e)
+		}
+		c := fake(t, f, "coordinate")
+		parts := strings.SplitN(c, ", ", 2)
+		lat, err1 := strconv.ParseFloat(parts[0], 64)
+		lon, err2 := strconv.ParseFloat(parts[len(parts)-1], 64)
+		if len(parts) != 2 || err1 != nil || err2 != nil || lat < -90 || lat > 90 || lon < -180 || lon > 180 {
+			t.Fatalf("coordinate %q is not a 'lat, lon' point within bounds", c)
 		}
 	}
 }

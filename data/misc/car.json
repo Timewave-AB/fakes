@@ -1,0 +1,10 @@
+[
+  { "format": "{maker} {model}", "maker": ["BMW"], "model": ["3 Series", "5 Series", "X3", "X5"] },
+  { "format": "{maker} {model}", "maker": ["Ford"], "model": ["Fiesta", "Focus", "Mustang", "Explorer"] },
+  { "format": "{maker} {model}", "maker": ["Honda"], "model": ["Civic", "Accord", "CR-V", "Jazz"] },
+  { "format": "{maker} {model}", "maker": ["Mercedes-Benz"], "model": ["A-Class", "C-Class", "E-Class", "GLC"] },
+  { "format": "{maker} {model}", "maker": ["Tesla"], "model": ["Model 3", "Model S", "Model X", "Model Y"] },
+  { "format": "{maker} {model}", "maker": ["Toyota"], "model": ["Corolla", "Camry", "RAV4", "Yaris"] },
+  { "format": "{maker} {model}", "maker": ["Volkswagen"], "model": ["Golf", "Passat", "Polo", "Tiguan"] },
+  { "format": "{maker} {model}", "maker": ["Volvo"], "model": ["XC40", "XC60", "XC90", "V60"] }
+]
