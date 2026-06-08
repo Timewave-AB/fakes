@@ -187,19 +187,13 @@ func resolve(r rng, token string, fields map[string]node) string {
 // rng, the output emitted so far in the current expansion (for derivations such
 // as a checksum over preceding digits), and its args. A builtin must be pure
 // over those inputs — no wall-clock, no crypto/rand — so seeding stays
-// reproducible; a time-based id derives its time from the rng.
+// reproducible; a time-based id derives its time from the rng. The optional
+// check validates args at compile time (their values, beyond the arity count).
+// The registry lives in builtins.go.
 type builtin struct {
 	arity int
+	check func(args []string) error
 	call  func(r rng, emitted string, args []string) string
-}
-
-var builtins = map[string]builtin{
-	// luhn emits a Luhn check digit over the digits emitted so far. Put it after
-	// its payload (its input is everything to its left); prepend fixed parts,
-	// e.g. a century, in an enclosing template so they stay out of the sum.
-	"luhn": {0, func(_ rng, emitted string, _ []string) string {
-		return string(rune('0' + luhnCheck(emitted)))
-	}},
 }
 
 // funcCall splits a "{token}" body shaped name(args) into its parts; ok is false
@@ -239,29 +233,12 @@ func checkFunc(body string) error {
 	if len(args) != b.arity {
 		return fmt.Errorf("token {%s}: %s takes %d args, got %d", body, name, b.arity, len(args))
 	}
-	return nil
-}
-
-// luhnCheck returns the Luhn check digit (0-9) over the digits of s; non-digit
-// runes are skipped. Doubling runs from the rightmost digit, so the result is
-// correct whatever the payload length.
-func luhnCheck(s string) int {
-	sum, double := 0, true
-	for i := len(s) - 1; i >= 0; i-- {
-		c := s[i]
-		if c < '0' || c > '9' {
-			continue
+	if b.check != nil {
+		if err := b.check(args); err != nil {
+			return fmt.Errorf("token {%s}: %w", body, err)
 		}
-		d := int(c - '0')
-		if double {
-			if d *= 2; d > 9 {
-				d -= 9
-			}
-		}
-		double = !double
-		sum += d
 	}
-	return (10 - sum%10) % 10
+	return nil
 }
 
 // compile converts parsed JSON into a node tree, validating structure up front.

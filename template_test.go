@@ -183,6 +183,15 @@ func TestCompileErrors(t *testing.T) {
 		`{"format":"{nope()}"}`,                                         // unknown function
 		`{"format":"{luhn(x)}"}`,                                        // function given args it takes none of
 		`{"format":"{luhn(}"}`,                                          // malformed function token
+		`{"format":"{int(1)}"}`,                                         // wrong arity
+		`{"format":"{int(a,b)}"}`,                                       // non-integer args
+		`{"format":"{int(5,1)}"}`,                                       // min > max
+		`{"format":"{hex(0)}"}`,                                         // count must be positive
+		`{"format":"{nanoid(-1)}"}`,                                     // negative count
+		`{"format":"{base64(0)}"}`,                                      // count must be positive
+		`{"format":"{float(1,2)}"}`,                                     // wrong arity
+		`{"format":"{float(1,2,-1)}"}`,                                  // negative decimals
+		`{"format":"{iban(US)}"}`,                                       // unsupported country
 	} {
 		if _, err := compile(parse(t, bad)); err == nil {
 			t.Errorf("compile(%s) = nil error, want error", bad)

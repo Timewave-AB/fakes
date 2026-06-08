@@ -140,9 +140,10 @@ A `*Fakes` is **not** safe for concurrent use — create one per goroutine.
 
 ## Data
 
-The library ships a ready-to-use set under [`data/`](data), organised by locale
-(`en_US`, `sv_SE`). Point either tool at the whole tree, a single locale, a
-copy, or your own directory — anywhere on disk; no naming rules.
+The library ships a ready-to-use set under [`data/`](data): one folder per locale
+(`en_US`, `sv_SE`) plus a locale-neutral `misc` folder. Point either tool at the
+whole tree, a single folder, a copy, or your own directory — anywhere on disk; no
+naming rules.
 
 A directory is just a namespace. Each JSON file is a category named after the
 file; each subdirectory is a dot-path segment — folders nest exactly like JSON
@@ -162,6 +163,11 @@ is `MM/DD/YYYY` in `en_US`, `YYYY-MM-DD` in `sv_SE`; `ssn` is a US SSN vs a
 Swedish personnummer): `address`, `color`, `company`, `date`, `email`, `ip`,
 `person`, `phone`, `price`, `sentence`, `ssn`, `time`, `url`, `username`,
 `uuid`, `version`, `word`.
+
+`data/misc` carries locale-neutral categories: `uuid` (a proper random v4),
+`mac`, and `creditcard` (per-network numbers ending in a valid `{luhn()}` digit).
+A time-ordered v7 UUID can't be expressed as data, so it's the `{uuid()}` builtin
+instead (see **Functions**).
 
 ## Data format
 
@@ -225,7 +231,34 @@ form prefixes the century outside the checksummed core:
 ```
 
 A function must be deterministic in the seeded rng (no wall-clock), so a seeded
-faker stays reproducible.
+faker stays reproducible. A time-based id (UUID v7, ULID) therefore draws its
+timestamp from the rng, not the clock — the result is a valid, reproducible value,
+not a real point in time.
+
+There are two kinds. **Derivations** read the digits emitted so far, so put them
+after their payload; **generators** read only the rng, so they stand alone.
+Arguments are validated at `New` (a bad count, range, or country fails fast).
+
+| Function | Kind | Emits |
+|----------|------|-------|
+| `{luhn()}` | derivation | Luhn check digit (mod-10) over preceding digits |
+| `{mod11()}` | derivation | weighted mod-11 check char (weights 2–7 from the right); `X` when it would be 10 |
+| `{ean()}` | derivation | EAN-13 / UPC-A / ISBN-13 / GTIN check digit |
+| `{uuid()}` | generator | UUID v7 (v4 ships as data — see [Data](#data)) |
+| `{ulid()}` | generator | ULID, 26-char Crockford base32 |
+| `{objectid()}` | generator | MongoDB ObjectID, 24 hex chars |
+| `{nanoid(n)}` | generator | URL-safe Nano ID, `n` chars |
+| `{hex(n)}` | generator | `n` lowercase hex digits |
+| `{base64(n)}` | generator | `n` random bytes, base64 |
+| `{int(min,max)}` | generator | uniform integer in `[min, max]` |
+| `{float(min,max,dp)}` | generator | number in `[min, max]` with `dp` decimals |
+| `{iban(CC)}` | generator | a length- and mod-97-valid IBAN for country `CC` (BE, DE, DK, ES, FI, NO, SE) |
+
+`{ean()}` is also the ISBN-13 check (an ISBN-13 *is* an EAN-13 — build the 978/979
+prefix in data and call `{ean()}`). `{iban()}` is a generator, not a derivation:
+an IBAN's check digits sit *before* the account number, which a left-to-right
+reader can't reach, so it emits the whole value (a generic numeric BBAN — valid
+length and checksum, not real bank routing).
 
 **References.** A `{..path}` token renders a node from the **data root** instead
 of a sibling field — the dot path is the one `Fake` takes, resolved across every
@@ -331,9 +364,10 @@ docker compose run --rm test                   # latest
 ```
 fakes.go        Fakes, New, options, seeding
 template.go     Fake, the recursive renderer (choices, format strings, paths)
+builtins.go     the {name()} function registry and its implementations
 data.go         data loading: folders/files -> namespace tree, multi-path merge
 cmd/fakes/      the `fakes` CLI (New + Fake over stdout)
-data/           shipped data (JSON), organised by locale
+data/           shipped data (JSON): locale folders + a misc folder
 ```
 
 To add a category, drop a JSON file into a data directory; to add a locale, add

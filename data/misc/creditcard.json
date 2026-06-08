@@ -1,0 +1,5 @@
+[
+  { "format": "4{d}{luhn()}", "d": { "format": "0", "repeat": 14 }, "weight": 4 },
+  { "format": "5{m}{d}{luhn()}", "m": ["1", "2", "3", "4", "5"], "d": { "format": "0", "repeat": 13 }, "weight": 3 },
+  { "format": "3{m}{d}{luhn()}", "m": ["4", "7"], "d": { "format": "0", "repeat": 12 }, "weight": 1 }
+]

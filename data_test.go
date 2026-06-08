@@ -66,6 +66,26 @@ func TestShippedDataCategories(t *testing.T) {
 	}
 }
 
+// TestShippedMiscCategories covers the locale-neutral data/misc folder: a proper
+// v4 UUID (version/variant nibbles fixed), a MAC address, and credit-card numbers
+// whose trailing {luhn()} check passes.
+func TestShippedMiscCategories(t *testing.T) {
+	f := newFakes(t, "data/misc", WithSeed(1))
+	v4 := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
+	mac := regexp.MustCompile(`^([0-9a-f]{2}:){5}[0-9a-f]{2}$`)
+	for i := 0; i < 200; i++ {
+		if v := fake(t, f, "uuid"); !v4.MatchString(v) {
+			t.Fatalf("misc uuid %q is not a valid v4", v)
+		}
+		if v := fake(t, f, "mac"); !mac.MatchString(v) {
+			t.Fatalf("misc mac %q is not a MAC address", v)
+		}
+		if v := fake(t, f, "creditcard"); len(v) < 15 || len(v) > 16 || !luhnValid(v) {
+			t.Fatalf("creditcard %q is not a 15-16 digit Luhn-valid number", v)
+		}
+	}
+}
+
 // TestSwedishPersonnummer checks the two rules the shape regex can't: the date
 // is a real calendar date (so month-length variants never emit e.g. Apr 31 or
 // Feb 30) and the trailing digit is a valid Luhn checksum over the other nine.
