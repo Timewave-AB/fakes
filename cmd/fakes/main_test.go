@@ -19,7 +19,7 @@ func runOut(args ...string) (int, string, string) {
 }
 
 func TestRunOutputsValue(t *testing.T) {
-	code, out, errb := runOut(svSE, "person")
+	code, out, errb := runOut("-path", "person", svSE)
 	if code != 0 {
 		t.Fatalf("run = %d, stderr=%q", code, errb)
 	}
@@ -33,11 +33,11 @@ func TestRunOutputsValue(t *testing.T) {
 
 func TestRunDotPath(t *testing.T) {
 	// person.last descends to just a surname — never the full "First Last".
-	code, full, _ := runOut("-seed", "7", svSE, "person")
+	code, full, _ := runOut("-seed", "7", "-path", "person", svSE)
 	if code != 0 {
 		t.Fatalf("person run = %d", code)
 	}
-	code, last, errb := runOut("-seed", "7", svSE, "person.last")
+	code, last, errb := runOut("-seed", "7", "-path", "person.last", svSE)
 	if code != 0 {
 		t.Fatalf("person.last run = %d, stderr=%q", code, errb)
 	}
@@ -50,8 +50,8 @@ func TestRunDotPath(t *testing.T) {
 }
 
 func TestRunSeedDeterministic(t *testing.T) {
-	_, a, _ := runOut("-seed", "42", svSE, "address")
-	_, b, _ := runOut("-seed", "42", svSE, "address")
+	_, a, _ := runOut("-seed", "42", "-path", "address", svSE)
+	_, b, _ := runOut("-seed", "42", "-path", "address", svSE)
 	if a != b {
 		t.Errorf("same seed diverged: %q != %q", a, b)
 	}
@@ -59,7 +59,7 @@ func TestRunSeedDeterministic(t *testing.T) {
 
 func TestRunRepeat(t *testing.T) {
 	// -repeat N prints N values, one per line by default.
-	code, out, errb := runOut("-seed", "1", "-repeat", "3", svSE, "word")
+	code, out, errb := runOut("-seed", "1", "-repeat", "3", "-path", "word", svSE)
 	if code != 0 {
 		t.Fatalf("run = %d, stderr=%q", code, errb)
 	}
@@ -70,8 +70,8 @@ func TestRunRepeat(t *testing.T) {
 }
 
 func TestRunSeparator(t *testing.T) {
-	// -separator joins the repeated values instead of newlines.
-	code, out, errb := runOut("-repeat", "3", "-separator", ",", svSE, "word")
+	// -separator joins the emitted values instead of newlines.
+	code, out, errb := runOut("-repeat", "3", "-separator", ",", "-path", "word", svSE)
 	if code != 0 {
 		t.Fatalf("run = %d, stderr=%q", code, errb)
 	}
@@ -85,7 +85,7 @@ func TestRunSeparator(t *testing.T) {
 
 func TestRunRepeatAdvancesRNG(t *testing.T) {
 	// Each repeat is a fresh draw, not the same value N times.
-	code, out, errb := runOut("-seed", "1", "-repeat", "5", svSE, "person")
+	code, out, errb := runOut("-seed", "1", "-repeat", "5", "-path", "person", svSE)
 	if code != 0 {
 		t.Fatalf("run = %d, stderr=%q", code, errb)
 	}
@@ -98,10 +98,39 @@ func TestRunRepeatAdvancesRNG(t *testing.T) {
 	}
 }
 
+func TestRunMultiplePaths(t *testing.T) {
+	// -path repeats: each given path renders once, in order, one per line.
+	code, out, errb := runOut("-path", "person", "-path", "word", svSE)
+	if code != 0 {
+		t.Fatalf("run = %d, stderr=%q", code, errb)
+	}
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	if len(lines) != 2 {
+		t.Errorf("two -path flags gave %d lines: %q", len(lines), out)
+	}
+	for _, l := range lines {
+		if strings.TrimSpace(l) == "" {
+			t.Errorf("empty value among %q", out)
+		}
+	}
+}
+
+func TestRunMultiplePathsWithRepeat(t *testing.T) {
+	// repeat × paths values: 2 repeats over 2 paths => 4 lines.
+	code, out, errb := runOut("-repeat", "2", "-path", "person", "-path", "word", svSE)
+	if code != 0 {
+		t.Fatalf("run = %d, stderr=%q", code, errb)
+	}
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	if len(lines) != 4 {
+		t.Errorf("repeat=2 × 2 paths gave %d lines: %q", len(lines), out)
+	}
+}
+
 func TestRunRepeatInvalid(t *testing.T) {
 	// A non-positive repeat is misuse.
 	for _, r := range []string{"0", "-1"} {
-		code, _, errb := runOut("-repeat", r, svSE, "word")
+		code, _, errb := runOut("-repeat", r, "-path", "word", svSE)
 		if code != 2 {
 			t.Errorf("repeat=%s = %d, want 2", r, code)
 		}
@@ -111,9 +140,9 @@ func TestRunRepeatInvalid(t *testing.T) {
 	}
 }
 
-func TestRunUsageOnTooFewArgs(t *testing.T) {
-	// Need at least one data dir plus a path; fewer is misuse.
-	for _, args := range [][]string{{}, {svSE}} {
+func TestRunUsageOnMissingArgs(t *testing.T) {
+	// Need at least one -path and one data dir; fewer is misuse.
+	for _, args := range [][]string{{}, {svSE}, {"-path", "person"}} {
 		code, _, errb := runOut(args...)
 		if code != 2 {
 			t.Errorf("run(%v) = %d, want 2", args, code)
@@ -125,8 +154,8 @@ func TestRunUsageOnTooFewArgs(t *testing.T) {
 }
 
 func TestRunMultipleDirs(t *testing.T) {
-	// Several data dirs then a final path: all but the last arg are dirs.
-	code, out, errb := runOut(enUS, svSE, "person")
+	// Several data dirs after the path flags: all positionals are dirs.
+	code, out, errb := runOut("-path", "person", enUS, svSE)
 	if code != 0 {
 		t.Fatalf("run(multi-dir) = %d, stderr=%q", code, errb)
 	}
@@ -136,7 +165,7 @@ func TestRunMultipleDirs(t *testing.T) {
 }
 
 func TestRunUnknownCategoryFails(t *testing.T) {
-	code, _, errb := runOut(svSE, "nope")
+	code, _, errb := runOut("-path", "nope", svSE)
 	if code != 1 {
 		t.Fatalf("run = %d, want 1", code)
 	}
@@ -146,7 +175,7 @@ func TestRunUnknownCategoryFails(t *testing.T) {
 }
 
 func TestRunMissingDirFails(t *testing.T) {
-	code, _, errb := runOut("../../data/nope", "person")
+	code, _, errb := runOut("-path", "person", "../../data/nope")
 	if code != 1 {
 		t.Fatalf("run = %d, want 1", code)
 	}

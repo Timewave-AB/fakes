@@ -24,24 +24,27 @@ lacked the locale coverage and format control we needed.
 
 ## CLI
 
-Install the `fakes` command, then point it at one or more data directories and a
-path — it prints one value to stdout. Each dot segment descends one level:
-folders, then the category (a JSON file), then fields inside it.
+Install the `fakes` command, then give it one or more `-path` flags and one or
+more data directories — it prints one value per path to stdout. Each dot segment
+descends one level: folders, then the category (a JSON file), then fields inside it.
 
 ```sh
 go install github.com/Timewave-AB/fakes/cmd/fakes@latest
 
-fakes ./data/sv_SE person        # Sara Eriksson
-fakes ./data/sv_SE person.last   # Eriksson  (dotted path into a category)
-fakes ./data sv_SE.person        # point at the tree; the folder is a segment
-fakes ./data/sv_SE ./mydata word # layer dirs; the last wins a name clash
-fakes -seed 42 ./data/sv_SE address
-fakes -repeat 3 ./data/sv_SE person          # three values, one per line
-fakes -repeat 3 -separator ', ' ./data/sv_SE word  # nät, barn, sol
+fakes -path person ./data/sv_SE               # Sara Eriksson
+fakes -path person.last ./data/sv_SE          # Eriksson  (dotted path into a category)
+fakes -path sv_SE.person ./data               # point at the tree; the folder is a segment
+fakes -path person -path address ./data/sv_SE # several paths, one value each
+fakes -path word ./data/sv_SE ./mydata        # layer dirs; the last wins a name clash
+fakes -seed 42 -path address ./data/sv_SE
+fakes -repeat 3 -path person ./data/sv_SE              # three values, one per line
+fakes -repeat 3 -separator ', ' -path word ./data/sv_SE  # nät, barn, sol
 ```
 
-`-repeat N` renders the path N times — each an independent draw — joined by
-`-separator` (default a newline, so values land one per line).
+`-path` is repeatable, and flags come before the data directories. `-repeat N`
+renders each path N times — every render an independent draw — and all emitted
+values (`repeat` × paths) are joined by `-separator` (default a newline, so
+values land one per line).
 
 Without installing, run it from a checkout with `go run ./cmd/fakes …`. Exit
 codes: `0` success, `1` runtime error (missing dir, unknown path), `2` misuse.
@@ -69,7 +72,7 @@ the `),(` separator; the outer `V#ALUES(…)` wraps that into one valid row list
 letter token — see [Data format](#data-format).)
 
 ```sh
-fakes -seed 1 ./data/sv_SE sql
+fakes -seed 1 -path sql ./data/sv_SE
 # INSERT INTO users VALUES('zoom'),('wahoo'),('blip');
 ```
 
@@ -77,7 +80,7 @@ Raise the template's `repeat` for more rows per statement; use the CLI's
 `-repeat` for more statements — together they build a whole seed file:
 
 ```sh
-fakes -repeat 100 ./data/sv_SE sql > seed.sql
+fakes -repeat 100 -path sql ./data/sv_SE > seed.sql
 ```
 
 ## Library
