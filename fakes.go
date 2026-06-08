@@ -74,7 +74,3 @@ func newRand(seed uint64, seeded bool) *rand.Rand {
 	}
 	return rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))
 }
-
-// intn returns a random int in [0, n). It panics for n <= 0, matching the
-// stdlib contract.
-func (f *Fakes) intn(n int) int { return f.rand.IntN(n) }

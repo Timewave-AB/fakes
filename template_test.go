@@ -30,18 +30,14 @@ func compiled(t *testing.T, s string) node {
 	return n
 }
 
-func render(t *testing.T, f *Fakes, s string) string {
+func mustRender(t *testing.T, f *Fakes, s string) string {
 	t.Helper()
-	out, err := f.render(compiled(t, s))
-	if err != nil {
-		t.Fatalf("render %q: %v", s, err)
-	}
-	return out
+	return render(f.rand, compiled(t, s))
 }
 
 func TestLiteralStringIsVerbatim(t *testing.T) {
 	// A bare string is a literal, never formatted: 'a'/'A' must survive.
-	if got := render(t, engine(1), `"Malmö"`); got != "Malmö" {
+	if got := mustRender(t, engine(1), `"Malmö"`); got != "Malmö" {
 		t.Fatalf("literal = %q, want Malmö", got)
 	}
 }
@@ -56,7 +52,7 @@ func TestCharacterClasses(t *testing.T) {
 	f := engine(7)
 	for tmpl, re := range cases {
 		for i := 0; i < 100; i++ {
-			if got := render(t, f, tmpl); !re.MatchString(got) {
+			if got := mustRender(t, f, tmpl); !re.MatchString(got) {
 				t.Fatalf("%s produced %q, want %s", tmpl, got, re)
 			}
 		}
@@ -65,13 +61,13 @@ func TestCharacterClasses(t *testing.T) {
 
 func TestEscapeAndLiteralChars(t *testing.T) {
 	// '#' escapes the next char; non-class chars (7, x, -) are literal.
-	if got := render(t, engine(1), `{"format":"#0#1#A#a## x7-z"}`); got != "01Aa# x7-z" {
+	if got := mustRender(t, engine(1), `{"format":"#0#1#A#a## x7-z"}`); got != "01Aa# x7-z" {
 		t.Fatalf("escape = %q, want \"01Aa# x7-z\"", got)
 	}
 }
 
 func TestTokenSubstitution(t *testing.T) {
-	if got := render(t, engine(1), `{"format":"{x}sson","x":["Erik"]}`); got != "Eriksson" {
+	if got := mustRender(t, engine(1), `{"format":"{x}sson","x":["Erik"]}`); got != "Eriksson" {
 		t.Fatalf("token = %q, want Eriksson", got)
 	}
 }
@@ -80,7 +76,7 @@ func TestAlternationPicksOneField(t *testing.T) {
 	f := engine(3)
 	seen := map[string]bool{}
 	for i := 0; i < 100; i++ {
-		seen[render(t, f, `{"format":"{a|b}","a":["A"],"b":["B"]}`)] = true
+		seen[mustRender(t, f, `{"format":"{a|b}","a":["A"],"b":["B"]}`)] = true
 	}
 	if !seen["A"] || !seen["B"] || len(seen) != 2 {
 		t.Fatalf("alternation produced %v, want both A and B", seen)
@@ -90,7 +86,7 @@ func TestAlternationPicksOneField(t *testing.T) {
 func TestWeightZeroNeverChosen(t *testing.T) {
 	f := engine(5)
 	for i := 0; i < 200; i++ {
-		if got := render(t, f, `[{"format":"X","weight":0},"Y"]`); got != "Y" {
+		if got := mustRender(t, f, `[{"format":"X","weight":0},"Y"]`); got != "Y" {
 			t.Fatalf("weight-0 variant chosen: %q", got)
 		}
 	}
@@ -100,12 +96,36 @@ func TestWeightSkewsDistribution(t *testing.T) {
 	f := engine(9)
 	heavy := 0
 	for i := 0; i < 1000; i++ {
-		if render(t, f, `[{"format":"H","weight":10},{"format":"L"}]`) == "H" {
+		if mustRender(t, f, `[{"format":"H","weight":10},{"format":"L"}]`) == "H" {
 			heavy++
 		}
 	}
 	if heavy < 800 { // expected ~909
 		t.Fatalf("heavy variant chosen %d/1000, want a clear majority", heavy)
+	}
+}
+
+func TestRepeatRendersFormatNTimes(t *testing.T) {
+	// repeat N concatenates N independent renders of the format ('x','y' are
+	// literal, not character classes).
+	if got := mustRender(t, engine(1), `{"format":"xy","repeat":3}`); got != "xyxyxy" {
+		t.Fatalf("repeat literal = %q, want xyxyxy", got)
+	}
+	// separator joins renders (N-1 of them, no trailing one).
+	if got := mustRender(t, engine(1), `{"format":"xy","repeat":3,"separator":"-"}`); got != "xy-xy-xy" {
+		t.Fatalf("repeat with separator = %q, want xy-xy-xy", got)
+	}
+	f, re := engine(7), regexp.MustCompile(`^[0-9]{4}$`)
+	seen := map[string]bool{}
+	for i := 0; i < 50; i++ {
+		got := mustRender(t, f, `{"format":"0","repeat":4}`)
+		if !re.MatchString(got) {
+			t.Fatalf("repeat-4 = %q, want 4 digits", got)
+		}
+		seen[got] = true
+	}
+	if len(seen) < 2 {
+		t.Fatalf("repeat never varied across renders: %v", seen)
 	}
 }
 
@@ -115,35 +135,36 @@ func TestRecursionHasNoDepthLimit(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		tmpl = `{"format":"{a}","a":[` + tmpl + `]}`
 	}
-	if got := render(t, engine(1), tmpl); got != "deep" {
+	if got := mustRender(t, engine(1), tmpl); got != "deep" {
 		t.Fatalf("deep recursion = %q, want deep", got)
 	}
 }
 
 func TestCompileErrors(t *testing.T) {
-	// Structural problems are caught up front, at compile/New time.
+	// Every structural problem is caught up front, at compile/New time, never
+	// deferred to a random render that happens to hit the bad branch.
 	for _, bad := range []string{
-		`{"x":["Q"]}`,            // object without "format"
-		`{"format":"{y}","x":1}`, // a field is a bare number
-		`[1, 2]`,                 // a choice of numbers
-		`5`,                      // unsupported node type
+		`{"x":["Q"]}`,                 // object without "format"
+		`{"format":"{y}","x":1}`,      // a field is a bare number
+		`[1, 2]`,                      // a choice of numbers
+		`5`,                           // unsupported node type
+		`[]`,                          // empty choice
+		`{"format":"{x"}`,             // unterminated brace
+		`{"format":"{y}","x":["Q"]}`,  // token names a missing field
+		`{"format":"{}"}`,             // empty token name
+		`{"format":"{a|}","a":["Q"]}`, // empty alternation segment
+		`[{"format":"A","weight":-1},{"format":"B"}]`,                   // negative weight
+		`[{"format":"A","weight":0},{"format":"B","weight":0}]`,         // weights sum to zero
+		`[{"format":"A","weight":1e308},{"format":"B","weight":1e308}]`, // weights overflow to +Inf
+		`[{"format":"A","weight":"heavy"}]`,                             // non-numeric weight
+		`{"format":"x","repeat":0}`,                                     // repeat below 1
+		`{"format":"x","repeat":-2}`,                                    // negative repeat
+		`{"format":"x","repeat":1.5}`,                                   // non-integer repeat
+		`{"format":"x","repeat":"two"}`,                                 // non-numeric repeat
+		`{"format":"x","repeat":2,"separator":5}`,                       // non-string separator
 	} {
 		if _, err := compile(parse(t, bad)); err == nil {
 			t.Errorf("compile(%s) = nil error, want error", bad)
-		}
-	}
-}
-
-func TestRenderErrors(t *testing.T) {
-	// These compile, but fail when rendered.
-	f := engine(1)
-	for _, bad := range []string{
-		`{"format":"{x"}`,            // unterminated brace
-		`{"format":"{y}","x":["Q"]}`, // token names a missing field
-		`[]`,                         // empty choice
-	} {
-		if _, err := f.render(compiled(t, bad)); err == nil {
-			t.Errorf("render(%s) = nil error, want error", bad)
 		}
 	}
 }

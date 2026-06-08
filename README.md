@@ -23,7 +23,7 @@ format control we needed.
 go get github.com/Timewave-AB/fakes
 ```
 
-Requires Go 1.26+.
+Requires Go 1.22+ (for `math/rand/v2`).
 
 ## Usage
 
@@ -119,6 +119,22 @@ within a choice:
 ]
 ```
 
+Only template (object) nodes carry `weight` — a bare string or nested array in a
+choice always counts as `1`. Weights are checked when you create the faker: a
+negative, non-numeric, or all-zero set is rejected at `New`, so a typo fails
+fast instead of silently skewing output.
+
+**Repeat.** A template node may carry a `repeat` (default `1`) to render its
+`format` that many times — each render an independent pick — joined by
+`separator` (default `""`):
+
+```json
+{ "format": "{word}", "repeat": 3, "separator": " ", "word": ["foo", "bar", "baz"] }
+```
+
+This yields e.g. `bar foo baz`. `repeat` must be a positive integer and
+`separator` a string, both checked at `New`.
+
 **Format string.** Every character is literal except:
 
 | Token | Expands to |
@@ -192,6 +208,14 @@ docker compose run --rm --user "$(id -u):$(id -g)" tidy  # go mod tidy
 ```
 
 `docker build .` runs `go vet` and the tests, so it works as a CI gate too.
+
+Tests run against the latest Go by default. Set `GO_VERSION` to check the lowest
+supported version too:
+
+```sh
+GO_VERSION=1.22 docker compose run --rm test   # lowest supported
+docker compose run --rm test                   # latest
+```
 
 ## Layout
 

@@ -1,3 +1,3 @@
 module github.com/Timewave-AB/fakes
 
-go 1.26
+go 1.22

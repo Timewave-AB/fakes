@@ -22,7 +22,7 @@ func TestEscapeEdgeCases(t *testing.T) {
 		`{"format":"x}y"}`:      "x}y",  // an unmatched } is literal (x, y aren't classes)
 	}
 	for tmpl, want := range cases {
-		if got := render(t, f, tmpl); got != want {
+		if got := mustRender(t, f, tmpl); got != want {
 			t.Errorf("render(%s) = %q, want %q", tmpl, got, want)
 		}
 	}
@@ -31,7 +31,7 @@ func TestEscapeEdgeCases(t *testing.T) {
 func TestMultibyteFormat(t *testing.T) {
 	// Scanning is rune-aware: multibyte literals coexist with class chars and
 	// tokens without corrupting indices.
-	got := render(t, engine(2), `{"format":"Öster{x}-0å","x":["väg"]}`)
+	got := mustRender(t, engine(2), `{"format":"Öster{x}-0å","x":["väg"]}`)
 	if !regexp.MustCompile(`^Österväg-[0-9]å$`).MatchString(got) {
 		t.Fatalf("multibyte format = %q", got)
 	}
@@ -41,16 +41,10 @@ func TestAlternationThreeWay(t *testing.T) {
 	f := engine(4)
 	seen := map[string]bool{}
 	for i := 0; i < 200; i++ {
-		seen[render(t, f, `{"format":"{a|b|c}","a":["A"],"b":["B"],"c":["C"]}`)] = true
+		seen[mustRender(t, f, `{"format":"{a|b|c}","a":["A"],"b":["B"],"c":["C"]}`)] = true
 	}
 	if !seen["A"] || !seen["B"] || !seen["C"] || len(seen) != 3 {
 		t.Fatalf("3-way alternation produced %v, want A, B and C", seen)
-	}
-}
-
-func TestEmptyChoiceErrors(t *testing.T) {
-	if _, err := engine(1).render(compiled(t, `[]`)); err == nil {
-		t.Fatal("render([]) = nil error, want empty-choice error")
 	}
 }
 
@@ -66,20 +60,6 @@ func TestNewErrors(t *testing.T) {
 	// Invalid JSON in a category file fails.
 	if _, err := New(writeLocale(t, "xx_XX", map[string]string{"broken": `{ not json`})); err == nil {
 		t.Error("New(invalid JSON) = nil error")
-	}
-}
-
-func TestFakeSurfacesErrors(t *testing.T) {
-	f := engine(1)
-	f.categories = map[string]node{
-		"bad":   compiled(t, `[{"format":"{y}","x":["Q"]}]`), // token names a missing field -> render error
-		"empty": compiled(t, `[]`),                           // empty choice met on a path -> descend error
-	}
-	if _, err := f.Fake("bad"); err == nil {
-		t.Error("Fake(bad) = nil error, want render error")
-	}
-	if _, err := f.Fake("empty.foo"); err == nil {
-		t.Error("Fake(empty.foo) = nil error, want empty-choice error")
 	}
 }
 

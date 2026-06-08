@@ -2,6 +2,7 @@ package fakes
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 )
@@ -10,6 +11,13 @@ import (
 // JSON into these once (see compile) means rendering never re-inspects the raw
 // JSON or re-sums weights.
 type node interface{ isNode() }
+
+// rng is the randomness the renderer draws from. Passing it in keeps the render
+// functions a pure core over an explicit effect; *rand.Rand satisfies it.
+type rng interface {
+	IntN(n int) int
+	Float64() float64
+}
 
 // literal is emitted verbatim, never formatted.
 type literal string
@@ -25,10 +33,14 @@ type choice struct {
 
 func (*choice) isNode() {}
 
-// template renders a format string, substituting {tokens} from fields.
+// template renders a format string, substituting {tokens} from fields. repeat
+// (default 1) renders that format that many times and joins the results with
+// separator (default ""), each render an independent pick.
 type template struct {
-	format string
-	fields map[string]node
+	format    string
+	fields    map[string]node
+	repeat    int
+	separator string
 }
 
 func (*template) isNode() {}
@@ -43,19 +55,17 @@ func (f *Fakes) Fake(path string) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("fakes: unknown category %q", segments[0])
 	}
-	n, err := f.descend(n, segments[1:])
+	n, err := descend(f.rand, n, segments[1:])
 	if err != nil {
 		return "", fmt.Errorf("fakes: %s: %w", path, err)
 	}
-	s, err := f.render(n)
-	if err != nil {
-		return "", fmt.Errorf("fakes: %s: %w", path, err)
-	}
-	return s, nil
+	return render(f.rand, n), nil
 }
 
-// descend walks named fields, resolving choices it meets along the way.
-func (f *Fakes) descend(n node, segments []string) (node, error) {
+// descend walks named fields, resolving choices it meets along the way. It is
+// the one render-side step that can fail, because the path comes from the
+// caller and may name a field that does not exist.
+func descend(r rng, n node, segments []string) (node, error) {
 	if len(segments) == 0 {
 		return n, nil
 	}
@@ -65,58 +75,57 @@ func (f *Fakes) descend(n node, segments []string) (node, error) {
 		if !ok {
 			return nil, fmt.Errorf("no field %q", segments[0])
 		}
-		return f.descend(child, segments[1:])
+		return descend(r, child, segments[1:])
 	case *choice:
-		chosen, err := f.pick(n)
-		if err != nil {
-			return nil, err
-		}
-		return f.descend(chosen, segments) // a choice consumes no path segment
+		return descend(r, pick(r, n), segments) // a choice consumes no path segment
 	default:
 		return nil, fmt.Errorf("cannot descend into %T at %q", n, segments[0])
 	}
 }
 
-// render evaluates a node to a string.
-func (f *Fakes) render(n node) (string, error) {
+// render evaluates a compiled node to a string. compile validates every node up
+// front, so rendering a compiled tree cannot fail.
+func render(r rng, n node) string {
 	switch n := n.(type) {
 	case literal:
-		return string(n), nil
+		return string(n)
 	case *choice:
-		chosen, err := f.pick(n)
-		if err != nil {
-			return "", err
-		}
-		return f.render(chosen)
+		return render(r, pick(r, n))
 	case *template:
-		return f.expand(n.format, n.fields)
+		if n.repeat == 1 {
+			return expand(r, n.format, n.fields)
+		}
+		var b strings.Builder
+		for i := 0; i < n.repeat; i++ {
+			if i > 0 {
+				b.WriteString(n.separator)
+			}
+			b.WriteString(expand(r, n.format, n.fields))
+		}
+		return b.String()
 	default:
-		return "", fmt.Errorf("unsupported node %T", n)
+		panic(fmt.Sprintf("fakes: uncompiled node %T", n))
 	}
 }
 
 // pick selects one item. Uniform choices are O(1); weighted choices are an
-// O(log n) search over precomputed cumulative weights.
-func (f *Fakes) pick(c *choice) (node, error) {
-	if len(c.items) == 0 {
-		return nil, fmt.Errorf("empty choice")
-	}
+// O(log n) search over precomputed cumulative weights. compile guarantees a
+// non-empty choice and a finite positive total, so the index is always in range.
+func pick(r rng, c *choice) node {
 	if c.cum == nil {
-		return c.items[f.intn(len(c.items))], nil
+		return c.items[r.IntN(len(c.items))]
 	}
-	r := f.rand.Float64() * c.cum[len(c.cum)-1]
-	i := sort.Search(len(c.cum), func(i int) bool { return c.cum[i] > r })
-	if i >= len(c.items) {
-		i = len(c.items) - 1
-	}
-	return c.items[i], nil
+	x := r.Float64() * c.cum[len(c.cum)-1]
+	i := sort.Search(len(c.cum), func(i int) bool { return c.cum[i] > x })
+	return c.items[i]
 }
 
 // expand renders a format string. Character classes: '0' digit 0-9, '1' digit
 // 1-9, 'A' letter A-Z, 'a' letter a-z. '#' escapes the next character to a
 // literal ("#0" -> "0", "##" -> "#"). "{token}" is substituted via resolve;
-// every other rune is literal.
-func (f *Fakes) expand(format string, fields map[string]node) (string, error) {
+// every other rune is literal. checkTokens validated the braces and tokens at
+// compile time, so this scan cannot fail.
+func expand(r rng, format string, fields map[string]node) string {
 	var b strings.Builder
 	rs := []rune(format)
 	for i := 0; i < len(rs); i++ {
@@ -128,44 +137,32 @@ func (f *Fakes) expand(format string, fields map[string]node) (string, error) {
 				b.WriteRune('#')
 			}
 		case '0':
-			b.WriteByte(byte('0' + f.intn(10)))
+			b.WriteByte(byte('0' + r.IntN(10)))
 		case '1':
-			b.WriteByte(byte('1' + f.intn(9)))
+			b.WriteByte(byte('1' + r.IntN(9)))
 		case 'A':
-			b.WriteByte(byte('A' + f.intn(26)))
+			b.WriteByte(byte('A' + r.IntN(26)))
 		case 'a':
-			b.WriteByte(byte('a' + f.intn(26)))
+			b.WriteByte(byte('a' + r.IntN(26)))
 		case '{':
 			end := i + 1
-			for end < len(rs) && rs[end] != '}' {
+			for rs[end] != '}' { // checkTokens guarantees a closing '}'
 				end++
 			}
-			if end >= len(rs) {
-				return "", fmt.Errorf("unterminated '{' in %q", format)
-			}
-			s, err := f.resolve(string(rs[i+1:end]), fields)
-			if err != nil {
-				return "", err
-			}
-			b.WriteString(s)
+			b.WriteString(resolve(r, string(rs[i+1:end]), fields))
 			i = end
 		default:
 			b.WriteRune(c)
 		}
 	}
-	return b.String(), nil
+	return b.String()
 }
 
-// resolve evaluates a "{token}" body: one or more field names separated by '|',
-// of which one is chosen at random and rendered.
-func (f *Fakes) resolve(token string, fields map[string]node) (string, error) {
+// resolve renders a "{token}" body: one or more field names separated by '|',
+// of which one is chosen at random. checkTokens guarantees every name exists.
+func resolve(r rng, token string, fields map[string]node) string {
 	names := strings.Split(token, "|")
-	name := names[f.intn(len(names))]
-	child, ok := fields[name]
-	if !ok {
-		return "", fmt.Errorf("token {%s}: no field %q", token, name)
-	}
-	return f.render(child)
+	return render(r, fields[names[r.IntN(len(names))]])
 }
 
 // compile converts parsed JSON into a node tree, validating structure up front.
@@ -183,12 +180,18 @@ func compile(v any) (node, error) {
 }
 
 func compileChoice(items []any) (node, error) {
+	if len(items) == 0 {
+		return nil, fmt.Errorf("empty choice")
+	}
 	c := &choice{items: make([]node, len(items))}
 	cum := make([]float64, len(items))
 	var total float64
 	weighted := false
 	for i, raw := range items {
-		w := weightOf(raw)
+		w, err := weightOf(raw)
+		if err != nil {
+			return nil, err
+		}
 		if w != 1 {
 			weighted = true
 		}
@@ -201,6 +204,9 @@ func compileChoice(items []any) (node, error) {
 		c.items[i] = n
 	}
 	if weighted { // uniform choices skip the weight table and pick in O(1)
+		if total <= 0 || math.IsInf(total, 1) {
+			return nil, fmt.Errorf("choice weights must sum to a finite positive number, got %v", total)
+		}
 		c.cum = cum
 	}
 	return c, nil
@@ -211,9 +217,19 @@ func compileTemplate(m map[string]any) (node, error) {
 	if !ok {
 		return nil, fmt.Errorf("template object missing string \"format\"")
 	}
-	t := &template{format: format, fields: make(map[string]node, len(m))}
+	repeat, err := repeatOf(m)
+	if err != nil {
+		return nil, err
+	}
+	sep := ""
+	if sv, ok := m["separator"]; ok {
+		if sep, ok = sv.(string); !ok {
+			return nil, fmt.Errorf("separator must be a string, got %T", sv)
+		}
+	}
+	t := &template{format: format, fields: make(map[string]node, len(m)), repeat: repeat, separator: sep}
 	for k, v := range m {
-		if k == "format" || k == "weight" {
+		if k == "format" || k == "weight" || k == "repeat" || k == "separator" {
 			continue
 		}
 		n, err := compile(v)
@@ -222,15 +238,75 @@ func compileTemplate(m map[string]any) (node, error) {
 		}
 		t.fields[k] = n
 	}
+	if err := checkTokens(format, t.fields); err != nil {
+		return nil, err
+	}
 	return t, nil
 }
 
-// weightOf reads a node's "weight" (default 1) from its raw JSON form.
-func weightOf(raw any) float64 {
-	if m, ok := raw.(map[string]any); ok {
-		if w, ok := m["weight"].(float64); ok {
-			return w
+// checkTokens validates a format string the way expand scans it, so every
+// "{token}" is balanced and names an existing field. This makes a typo'd or
+// dangling reference a New-time error, never a random render-time one.
+func checkTokens(format string, fields map[string]node) error {
+	rs := []rune(format)
+	for i := 0; i < len(rs); i++ {
+		switch rs[i] {
+		case '#':
+			i++ // an escaped char is literal, never a token delimiter
+		case '{':
+			end := i + 1
+			for end < len(rs) && rs[end] != '}' {
+				end++
+			}
+			if end >= len(rs) {
+				return fmt.Errorf("unterminated '{' in %q", format)
+			}
+			body := string(rs[i+1 : end])
+			for _, name := range strings.Split(body, "|") {
+				if _, ok := fields[name]; !ok {
+					return fmt.Errorf("token {%s}: no field %q", body, name)
+				}
+			}
+			i = end
 		}
 	}
-	return 1
+	return nil
+}
+
+// repeatOf reads a template's "repeat" (default 1): how many times its format
+// is rendered and concatenated. A present one must be a positive integer.
+func repeatOf(m map[string]any) (int, error) {
+	rv, ok := m["repeat"]
+	if !ok {
+		return 1, nil
+	}
+	r, ok := rv.(float64)
+	if !ok {
+		return 0, fmt.Errorf("repeat must be a number, got %T", rv)
+	}
+	if math.IsNaN(r) || math.IsInf(r, 0) || r < 1 || r != math.Trunc(r) {
+		return 0, fmt.Errorf("repeat must be a positive integer, got %v", rv)
+	}
+	return int(r), nil
+}
+
+// weightOf reads a node's "weight" (default 1) from its raw JSON form. Only
+// template objects carry weight; a present one must be finite and non-negative.
+func weightOf(raw any) (float64, error) {
+	m, ok := raw.(map[string]any)
+	if !ok {
+		return 1, nil
+	}
+	wv, ok := m["weight"]
+	if !ok {
+		return 1, nil
+	}
+	w, ok := wv.(float64)
+	if !ok {
+		return 0, fmt.Errorf("weight must be a number, got %T", wv)
+	}
+	if w < 0 || math.IsNaN(w) || math.IsInf(w, 0) {
+		return 0, fmt.Errorf("weight must be finite and non-negative, got %v", w)
+	}
+	return w, nil
 }
