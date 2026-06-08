@@ -1,11 +1,10 @@
-// Command fakes prints fake values from one or more data directories.
+// Command fakes prints one fake value from one or more data directories.
 //
-//	fakes -path person ./data/sv_SE              # a full person
-//	fakes -path person.last ./data/sv_SE         # just the surname (dotted path)
-//	fakes -path sv_SE.person ./data              # point at the tree, address by folder
-//	fakes -path person -path address ./data/sv_SE # several paths, one per line
-//	fakes -path person ./data/sv_SE ./mydata     # layer custom data; last dir wins
-//	fakes -seed 42 -path address ./data/sv_SE
+//	fakes -data-path ./data/sv_SE person                     # a full person
+//	fakes -data-path ./data/sv_SE person.last                # just the surname (dotted path)
+//	fakes -data-path ./data sv_SE.person                     # point at the tree, address by folder
+//	fakes -data-path ./data/sv_SE -data-path ./mydata person # layer custom data; last dir wins
+//	fakes -seed 42 -data-path ./data/sv_SE address
 //
 // It is a thin CLI over the fakes library: New(dirs) then Fake(path).
 package main
@@ -20,13 +19,13 @@ import (
 	"github.com/Timewave-AB/fakes"
 )
 
-const usage = `Usage: fakes -path P [-path P]... [-seed N] [-repeat N] [-separator S] <data-dir>...
+const usage = `Usage: fakes -data-path D [-data-path D]... [-seed N] [-repeat N] [-separator S] <path>
 
-  -path P       a category, or a dotted path into one (person, person.last); repeatable
-  <data-dir>    one or more data directories, e.g. ./data/sv_SE (last wins on clash)
+  -data-path D  a data directory, e.g. ./data/sv_SE (repeatable; last wins on clash)
+  <path>        a category, or a dotted path into one (person, person.last)
   -seed N       seed for reproducible output
-  -repeat N     render each path N times (default 1)
-  -separator S  string between emitted values (default newline)`
+  -repeat N     render the path N times (default 1)
+  -separator S  string between repeated values (default newline)`
 
 // stringList collects a repeatable string flag, preserving order.
 type stringList []string
@@ -44,14 +43,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	fs.Usage = func() { fmt.Fprintln(stderr, usage) }
 	seed := fs.Uint64("seed", 0, "seed for reproducible output")
-	repeat := fs.Int("repeat", 1, "render each path this many times")
-	sep := fs.String("separator", "\n", "string between emitted values")
-	var paths stringList
-	fs.Var(&paths, "path", "a category or dotted path to render (repeatable)")
+	repeat := fs.Int("repeat", 1, "render the path this many times")
+	sep := fs.String("separator", "\n", "string between repeated values")
+	var dirs stringList
+	fs.Var(&dirs, "data-path", "a data directory to load (repeatable)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	if len(paths) == 0 || fs.NArg() < 1 {
+	if len(dirs) == 0 || fs.NArg() != 1 {
 		fs.Usage()
 		return 2
 	}
@@ -67,20 +66,17 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 	})
 
-	f, err := fakes.New(fs.Args(), opts...)
+	path := fs.Arg(0)
+	f, err := fakes.New(dirs, opts...)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	vals := make([]string, 0, *repeat*len(paths))
-	for range *repeat {
-		for _, p := range paths {
-			v, err := f.Fake(p)
-			if err != nil {
-				fmt.Fprintln(stderr, err)
-				return 1
-			}
-			vals = append(vals, v)
+	vals := make([]string, *repeat)
+	for i := range vals {
+		if vals[i], err = f.Fake(path); err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
 		}
 	}
 	fmt.Fprintln(stdout, strings.Join(vals, *sep))
