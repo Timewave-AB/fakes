@@ -122,9 +122,10 @@ func pick(r rng, c *choice) node {
 
 // expand renders a format string. Character classes: '0' digit 0-9, '1' digit
 // 1-9, 'A' letter A-Z, 'a' letter a-z. '#' escapes the next character to a
-// literal ("#0" -> "0", "##" -> "#"). "{token}" is substituted via resolve;
-// every other rune is literal. checkTokens validated the braces and tokens at
-// compile time, so this scan cannot fail.
+// literal ("#0" -> "0", "##" -> "#"). A "{name(args)}" token calls a builtin;
+// any other "{token}" is substituted via resolve; every other rune is literal.
+// checkTokens validated the braces and tokens at compile time, so this scan
+// cannot fail.
 func expand(r rng, format string, fields map[string]node) string {
 	var b strings.Builder
 	rs := []rune(format)
@@ -149,7 +150,12 @@ func expand(r rng, format string, fields map[string]node) string {
 			for rs[end] != '}' { // checkTokens guarantees a closing '}'
 				end++
 			}
-			b.WriteString(resolve(r, string(rs[i+1:end]), fields))
+			body := string(rs[i+1 : end])
+			if name, args, ok := funcCall(body); ok {
+				b.WriteString(builtins[name].call(r, b.String(), args)) // b.String() is the output so far
+			} else {
+				b.WriteString(resolve(r, body, fields))
+			}
 			i = end
 		default:
 			b.WriteRune(c)
@@ -163,6 +169,87 @@ func expand(r rng, format string, fields map[string]node) string {
 func resolve(r rng, token string, fields map[string]node) string {
 	names := strings.Split(token, "|")
 	return render(r, fields[names[r.IntN(len(names))]])
+}
+
+// builtin is a format-string function invoked as {name(args)}. It receives the
+// rng, the output emitted so far in the current expansion (for derivations such
+// as a checksum over preceding digits), and its args. A builtin must be pure
+// over those inputs — no wall-clock, no crypto/rand — so seeding stays
+// reproducible; a time-based id derives its time from the rng.
+type builtin struct {
+	arity int
+	call  func(r rng, emitted string, args []string) string
+}
+
+var builtins = map[string]builtin{
+	// luhn emits a Luhn check digit over the digits emitted so far. Put it after
+	// its payload (its input is everything to its left); prepend fixed parts,
+	// e.g. a century, in an enclosing template so they stay out of the sum.
+	"luhn": {0, func(_ rng, emitted string, _ []string) string {
+		return string(rune('0' + luhnCheck(emitted)))
+	}},
+}
+
+// funcCall splits a "{token}" body shaped name(args) into its parts; ok is false
+// for a plain field or alternation body. A '(' without a trailing ')' yields
+// ok=false; checkFunc reports it as malformed at compile time.
+func funcCall(body string) (name string, args []string, ok bool) {
+	lp := strings.IndexByte(body, '(')
+	if lp < 0 || !strings.HasSuffix(body, ")") {
+		return "", nil, false
+	}
+	return body[:lp], splitArgs(body[lp+1 : len(body)-1]), true
+}
+
+// splitArgs parses a function arg list: comma-separated, trimmed; empty -> none.
+func splitArgs(s string) []string {
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	args := strings.Split(s, ",")
+	for i := range args {
+		args[i] = strings.TrimSpace(args[i])
+	}
+	return args
+}
+
+// checkFunc validates a function token at compile time: well-formed, naming a
+// known builtin, with the arg count that builtin takes.
+func checkFunc(body string) error {
+	name, args, ok := funcCall(body)
+	if !ok {
+		return fmt.Errorf("malformed function token {%s}", body)
+	}
+	b, known := builtins[name]
+	if !known {
+		return fmt.Errorf("token {%s}: unknown function %q", body, name)
+	}
+	if len(args) != b.arity {
+		return fmt.Errorf("token {%s}: %s takes %d args, got %d", body, name, b.arity, len(args))
+	}
+	return nil
+}
+
+// luhnCheck returns the Luhn check digit (0-9) over the digits of s; non-digit
+// runes are skipped. Doubling runs from the rightmost digit, so the result is
+// correct whatever the payload length.
+func luhnCheck(s string) int {
+	sum, double := 0, true
+	for i := len(s) - 1; i >= 0; i-- {
+		c := s[i]
+		if c < '0' || c > '9' {
+			continue
+		}
+		d := int(c - '0')
+		if double {
+			if d *= 2; d > 9 {
+				d -= 9
+			}
+		}
+		double = !double
+		sum += d
+	}
+	return (10 - sum%10) % 10
 }
 
 // compile converts parsed JSON into a node tree, validating structure up front.
@@ -262,9 +349,15 @@ func checkTokens(format string, fields map[string]node) error {
 				return fmt.Errorf("unterminated '{' in %q", format)
 			}
 			body := string(rs[i+1 : end])
-			for _, name := range strings.Split(body, "|") {
-				if _, ok := fields[name]; !ok {
-					return fmt.Errorf("token {%s}: no field %q", body, name)
+			if strings.IndexByte(body, '(') >= 0 { // a function token, not a field
+				if err := checkFunc(body); err != nil {
+					return err
+				}
+			} else {
+				for _, name := range strings.Split(body, "|") {
+					if _, ok := fields[name]; !ok {
+						return fmt.Errorf("token {%s}: no field %q", body, name)
+					}
 				}
 			}
 			i = end

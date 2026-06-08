@@ -129,6 +129,24 @@ func TestRepeatRendersFormatNTimes(t *testing.T) {
 	}
 }
 
+func TestFunctionTokenLuhn(t *testing.T) {
+	// {luhn()} appends a Luhn check digit over the digits emitted so far in the
+	// current expansion (non-digits skipped but kept). It reads the output
+	// buffer, so a value is never re-rendered. Bodies are escaped to fix input.
+	f := engine(1)
+	cases := map[string]string{
+		`{"format":"#8#1#1#2#1#8#9#8#7{luhn()}"}`:    "8112189876",  // personnummer body
+		`{"format":"#7#9#9#2#7#3#9#8#7#1{luhn()}"}`:  "79927398713", // classic Luhn vector
+		`{"format":"#8#1#1#2#1#8-#9#8#7{luhn()}"}`:   "811218-9876", // '-' skipped, kept
+		`{"format":"{n}{luhn()}","n":["811218987"]}`: "8112189876",  // over a rendered token
+	}
+	for tmpl, want := range cases {
+		if got := mustRender(t, f, tmpl); got != want {
+			t.Fatalf("%s = %q, want %q", tmpl, got, want)
+		}
+	}
+}
+
 func TestRecursionHasNoDepthLimit(t *testing.T) {
 	// Build {format:{a}, a:[{format:{a}, a:[ ... "deep" ]]}} 50 levels deep.
 	tmpl := `"deep"`
@@ -162,6 +180,9 @@ func TestCompileErrors(t *testing.T) {
 		`{"format":"x","repeat":1.5}`,                                   // non-integer repeat
 		`{"format":"x","repeat":"two"}`,                                 // non-numeric repeat
 		`{"format":"x","repeat":2,"separator":5}`,                       // non-string separator
+		`{"format":"{nope()}"}`,                                         // unknown function
+		`{"format":"{luhn(x)}"}`,                                        // function given args it takes none of
+		`{"format":"{luhn(}"}`,                                          // malformed function token
 	} {
 		if _, err := compile(parse(t, bad)); err == nil {
 			t.Errorf("compile(%s) = nil error, want error", bad)

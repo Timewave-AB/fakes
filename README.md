@@ -11,10 +11,14 @@ lacked the locale coverage and format control we needed.
   tags (`sv_SE`, never `sv`).
 - **Data lives in JSON** — all source data is recursive JSON on disk, read when
   you create a faker and then served from memory. Add or change locales without
-  touching the library.
+  touching the library. Behavior belongs in data too: the engine grows a
+  built-in function only for what data can't express (a checksum, a time-based
+  id), never for what character classes and choices already do.
 - **Composable** — templates nest without limit: weighted choices, character
   classes and sub-templates combine to model any format.
 - **Reproducible** — seed a faker and it emits the same sequence every time.
+  Every built-in draws only from that seed — no wall-clock, no `crypto/rand` —
+  so determinism holds end to end.
 - **Zero dependencies** — standard library only.
 
 ## CLI
@@ -182,6 +186,29 @@ fast instead of silently skewing output.
 This yields e.g. `bar foo baz`. `repeat` must be a positive integer and
 `separator` a string, both checked at `New`.
 
+**Functions.** A `{name()}` token calls a built-in function instead of rendering
+a field. `{luhn()}` appends a Luhn check digit over the digits emitted **so far**
+in the current format (non-digits skipped but kept); unknown functions or wrong
+argument counts are rejected at `New`. This is what makes a generated Swedish
+personnummer valid — its last digit is a Luhn checksum over the nine before it:
+
+```json
+{ "format": "00{mmdd}-000{luhn()}", "mmdd": [ … ] }
+```
+
+renders e.g. `811218-987`, then `{luhn()}` appends `6` → `811218-9876`. Place it
+after its payload (it reads what is to its left). The buffer it reads is
+per-expansion, so nesting keeps fixed parts out of the sum — e.g. a 12-digit
+form prefixes the century outside the checksummed core:
+
+```json
+{ "format": "{century}{core}", "century": ["19", "20"],
+  "core": { "format": "00{mmdd}-000{luhn()}", "mmdd": [ … ] } }
+```
+
+A function must be deterministic in the seeded rng (no wall-clock), so a seeded
+faker stays reproducible.
+
 **Format string.** Every character is literal except:
 
 | Token | Expands to |
@@ -192,6 +219,7 @@ This yields e.g. `bar foo baz`. `repeat` must be a positive integer and
 | `a` | letter a–z |
 | `#` | escape — the next char is literal (`#0` → `0`, `##` → `#`) |
 | `{name}` | render the sibling field `name` |
+| `{name()}` | call a built-in function (see **Functions**) |
 
 `{a|b}` renders one of the sibling fields `a` or `b`, chosen at random.
 

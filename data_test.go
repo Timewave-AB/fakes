@@ -2,7 +2,9 @@ package fakes
 
 import (
 	"regexp"
+	"strings"
 	"testing"
+	"time"
 )
 
 // TestShippedDataCategories asserts every shipped locale emits only well-formed
@@ -62,4 +64,58 @@ func TestShippedDataCategories(t *testing.T) {
 			}
 		}
 	}
+}
+
+// TestSwedishPersonnummer checks the two rules the shape regex can't: the date
+// is a real calendar date (so month-length variants never emit e.g. Apr 31 or
+// Feb 30) and the trailing digit is a valid Luhn checksum over the other nine.
+func TestSwedishPersonnummer(t *testing.T) {
+	sv := newFakes(t, "locales/sv_SE", WithSeed(1))
+	sawLongMonthEnd := false
+	for i := 0; i < 2000; i++ {
+		v := fake(t, sv, "ssn")
+		d := digitsOnly(v)
+		if len(d) != 10 {
+			t.Fatalf("ssn %q has %d digits, want 10", v, len(d))
+		}
+		if _, err := time.Parse("060102", d[:6]); err != nil { // 2-digit year, real-date check
+			t.Fatalf("ssn %q is not a valid calendar date: %v", v, err)
+		}
+		if !luhnValid(d) {
+			t.Fatalf("ssn %q fails the Luhn check", v)
+		}
+		if d[4:6] == "31" {
+			sawLongMonthEnd = true
+		}
+	}
+	if !sawLongMonthEnd {
+		t.Fatal("never generated a 31st — 31-day months are not reaching their last day")
+	}
+}
+
+func digitsOnly(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+// luhnValid verifies a full number (payload + trailing check digit). It doubles
+// from the second-from-right, independent of the generator's own Luhn code.
+func luhnValid(s string) bool {
+	sum, double := 0, false
+	for i := len(s) - 1; i >= 0; i-- {
+		n := int(s[i] - '0')
+		if double {
+			if n *= 2; n > 9 {
+				n -= 9
+			}
+		}
+		double = !double
+		sum += n
+	}
+	return sum%10 == 0
 }
