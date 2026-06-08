@@ -14,15 +14,18 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/Timewave-AB/fakes"
 )
 
-const usage = `Usage: fakes [-seed N] <data-dir>... <path>
+const usage = `Usage: fakes [-seed N] [-repeat N] [-separator S] <data-dir>... <path>
 
-  <data-dir>  one or more data directories, e.g. ./data/sv_SE (last wins on clash)
-  <path>      a category, or a dotted path into one (person, person.last)
-  -seed N     seed for reproducible output`
+  <data-dir>    one or more data directories, e.g. ./data/sv_SE (last wins on clash)
+  <path>        a category, or a dotted path into one (person, person.last)
+  -seed N       seed for reproducible output
+  -repeat N     render the path N times (default 1)
+  -separator S  string between repeated values (default newline)`
 
 func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
 
@@ -33,11 +36,17 @@ func run(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	fs.Usage = func() { fmt.Fprintln(stderr, usage) }
 	seed := fs.Uint64("seed", 0, "seed for reproducible output")
+	repeat := fs.Int("repeat", 1, "render the path this many times")
+	sep := fs.String("separator", "\n", "string between repeated values")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	if fs.NArg() < 2 {
 		fs.Usage()
+		return 2
+	}
+	if *repeat < 1 {
+		fmt.Fprintln(stderr, "repeat must be a positive integer")
 		return 2
 	}
 
@@ -54,11 +63,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	v, err := f.Fake(path)
-	if err != nil {
-		fmt.Fprintln(stderr, err)
-		return 1
+	vals := make([]string, *repeat)
+	for i := range vals {
+		if vals[i], err = f.Fake(path); err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
 	}
-	fmt.Fprintln(stdout, v)
+	fmt.Fprintln(stdout, strings.Join(vals, *sep))
 	return 0
 }

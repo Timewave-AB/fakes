@@ -36,7 +36,12 @@ fakes ./data/sv_SE person.last   # Eriksson  (dotted path into a category)
 fakes ./data sv_SE.person        # point at the tree; the folder is a segment
 fakes ./data/sv_SE ./mydata word # layer dirs; the last wins a name clash
 fakes -seed 42 ./data/sv_SE address
+fakes -repeat 3 ./data/sv_SE person          # three values, one per line
+fakes -repeat 3 -separator ', ' ./data/sv_SE word  # nät, barn, sol
 ```
+
+`-repeat N` renders the path N times — each an independent draw — joined by
+`-separator` (default a newline, so values land one per line).
 
 Without installing, run it from a checkout with `go run ./cmd/fakes …`. Exit
 codes: `0` success, `1` runtime error (missing dir, unknown path), `2` misuse.
@@ -68,11 +73,11 @@ fakes -seed 1 ./data/sv_SE sql
 # INSERT INTO users VALUES('zoom'),('wahoo'),('blip');
 ```
 
-Raise `repeat` for more rows per statement, or loop in the shell to build a
-whole seed file:
+Raise the template's `repeat` for more rows per statement; use the CLI's
+`-repeat` for more statements — together they build a whole seed file:
 
 ```sh
-for _ in $(seq 100); do fakes ./data/sv_SE sql; done > seed.sql
+fakes -repeat 100 ./data/sv_SE sql > seed.sql
 ```
 
 ## Library

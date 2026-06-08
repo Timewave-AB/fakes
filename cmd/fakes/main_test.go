@@ -57,6 +57,60 @@ func TestRunSeedDeterministic(t *testing.T) {
 	}
 }
 
+func TestRunRepeat(t *testing.T) {
+	// -repeat N prints N values, one per line by default.
+	code, out, errb := runOut("-seed", "1", "-repeat", "3", svSE, "word")
+	if code != 0 {
+		t.Fatalf("run = %d, stderr=%q", code, errb)
+	}
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	if len(lines) != 3 {
+		t.Errorf("repeat=3 gave %d lines: %q", len(lines), out)
+	}
+}
+
+func TestRunSeparator(t *testing.T) {
+	// -separator joins the repeated values instead of newlines.
+	code, out, errb := runOut("-repeat", "3", "-separator", ",", svSE, "word")
+	if code != 0 {
+		t.Fatalf("run = %d, stderr=%q", code, errb)
+	}
+	if n := strings.Count(out, "\n"); n != 1 {
+		t.Errorf("want one trailing newline, got %d: %q", n, out)
+	}
+	if !strings.Contains(out, ",") {
+		t.Errorf("values should be comma-joined: %q", out)
+	}
+}
+
+func TestRunRepeatAdvancesRNG(t *testing.T) {
+	// Each repeat is a fresh draw, not the same value N times.
+	code, out, errb := runOut("-seed", "1", "-repeat", "5", svSE, "person")
+	if code != 0 {
+		t.Fatalf("run = %d, stderr=%q", code, errb)
+	}
+	uniq := map[string]bool{}
+	for _, l := range strings.Split(strings.TrimRight(out, "\n"), "\n") {
+		uniq[l] = true
+	}
+	if len(uniq) < 2 {
+		t.Errorf("repeat should vary output, all identical: %q", out)
+	}
+}
+
+func TestRunRepeatInvalid(t *testing.T) {
+	// A non-positive repeat is misuse.
+	for _, r := range []string{"0", "-1"} {
+		code, _, errb := runOut("-repeat", r, svSE, "word")
+		if code != 2 {
+			t.Errorf("repeat=%s = %d, want 2", r, code)
+		}
+		if errb == "" {
+			t.Errorf("repeat=%s: want an error message", r)
+		}
+	}
+}
+
 func TestRunUsageOnTooFewArgs(t *testing.T) {
 	// Need at least one data dir plus a path; fewer is misuse.
 	for _, args := range [][]string{{}, {svSE}} {
