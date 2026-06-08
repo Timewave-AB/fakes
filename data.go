@@ -13,7 +13,8 @@ import (
 // a node keyed by its base name (address.json -> "address"); each subdirectory
 // becomes a nested group, so folders turn into dot-path segments. Paths are
 // merged left to right: matching groups merge by their children, and any other
-// clash (a leaf, or a leaf-vs-group) is won by the last directory loaded.
+// clash (a leaf, or a leaf-vs-group) is won by the last directory loaded. Once
+// merged, linkRefs binds every {..path} reference against the final tree.
 func loadData(paths []string) (map[string]node, error) {
 	root := map[string]node{}
 	for _, p := range paths {
@@ -25,6 +26,9 @@ func loadData(paths []string) (map[string]node, error) {
 	}
 	if len(root) == 0 {
 		return nil, fmt.Errorf("no .json data found in %v", paths)
+	}
+	if err := linkRefs(root); err != nil {
+		return nil, err
 	}
 	return root, nil
 }

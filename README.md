@@ -221,6 +221,20 @@ form prefixes the century outside the checksummed core:
 A function must be deterministic in the seeded rng (no wall-clock), so a seeded
 faker stays reproducible.
 
+**References.** A `{..path}` token renders a node from the **data root** instead
+of a sibling field — the dot path is the one `Fake` takes, resolved across every
+loaded directory. One category can borrow another, even across folders or layered
+data dirs:
+
+```json
+{ "format": "Hej, {..en_US.person}!" }
+```
+
+renders e.g. `Hej, Pat Smith!`. References are bound when you create the faker, so
+a path that is unknown, names a folder, or steps through a multi-variant choice
+fails at `New`. A reference must not lead back to its own value (directly or
+through a chain), or rendering won't terminate.
+
 **Format string.** Every character is literal except:
 
 | Token | Expands to |
@@ -232,8 +246,10 @@ faker stays reproducible.
 | `#` | escape — the next char is literal (`#0` → `0`, `##` → `#`) |
 | `{name}` | render the sibling field `name` |
 | `{name()}` | call a built-in function (see **Functions**) |
+| `{..path}` | render the node at a dot path from the data root (see **References**) |
 
-`{a|b}` renders one of the sibling fields `a` or `b`, chosen at random.
+`{a|b}` renders one of the sibling fields `a` or `b`, chosen at random; an arm
+may be a `{..path}` reference too (`{name|..en_US.person}`).
 
 **Putting it together** (`person.json`):
 
