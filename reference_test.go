@@ -81,6 +81,13 @@ func TestReferenceErrors(t *testing.T) {
 			"card": `{"format":"{..who.f}"}`,
 		},
 		"empty reference path": {"card": `{"format":"{..}"}`},
+		// A reference that leads back to its own value never terminates at render,
+		// so New must reject the cycle up front (direct, mutual, or chained).
+		"direct cycle": {"a": `{"format":"x{..a}"}`},
+		"mutual cycle": {"a": `{"format":"{..b}"}`, "b": `{"format":"{..a}"}`},
+		"chain cycle":  {"a": `{"format":"{..b}"}`, "b": `{"format":"{..c}"}`, "c": `{"format":"{..a}"}`},
+		// calc renders its operands, so a cycle through one must be caught too.
+		"calc operand cycle": {"x": `{"format":"{calc(y)}","y":[{"format":"{..x}"}]}`},
 	}
 	for name, files := range cases {
 		if _, err := New([]string{writeData(t, files)}); err == nil {

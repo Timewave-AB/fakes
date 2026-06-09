@@ -30,6 +30,9 @@ func loadData(paths []string) (map[string]node, error) {
 	if err := linkRefs(root); err != nil {
 		return nil, err
 	}
+	if err := checkNoCycles(root); err != nil {
+		return nil, err
+	}
 	return root, nil
 }
 

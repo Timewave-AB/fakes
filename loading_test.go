@@ -3,8 +3,24 @@ package fakes
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
+
+// TestList pins the discoverable paths: every category, its dotted fields, and
+// folder segments — descending transparently through single-variant choices.
+func TestList(t *testing.T) {
+	dir := writeData(t, map[string]string{
+		"person":   `{"format":"{first} {last}","first":["A"],"last":["B"]}`,
+		"word":     `["x", "y"]`,
+		"geo/city": `["Z"]`,
+	})
+	got := newFakes(t, dir, WithSeed(1)).List()
+	want := []string{"geo.city", "person", "person.first", "person.last", "word"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("List() = %v, want %v", got, want)
+	}
+}
 
 // writeData builds a temp data directory from a map of relative path (without
 // ".json") -> file content, creating parent folders as needed. The directory's

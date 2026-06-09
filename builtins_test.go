@@ -122,6 +122,31 @@ func TestBuiltinSeqPerSession(t *testing.T) {
 	}
 }
 
+// TestBuiltinArgLimits pins the New-time guards that keep a fat-fingered or
+// overflowing argument from panicking or OOM-ing at render. Each must be rejected
+// at compile, not detonate when the template is drawn.
+func TestBuiltinArgLimits(t *testing.T) {
+	bad := []string{
+		`{"format":"{int(-9223372036854775808,9223372036854775807)}"}`, // span overflows int -> IntN panic
+		`{"format":"{hex(2000000000)}"}`,                               // ~2 GB string
+		`{"format":"{nanoid(2000000000)}"}`,
+		`{"format":"{base64(2000000000)}"}`,
+		`{"format":"{float(-1e308,1e308,2)}"}`,           // span is +Inf
+		`{"format":"{float(0,1,100000)}"}`,               // decimals -> huge string
+		`{"format":"{calc(1+1,100000)}"}`,                // calc decimals -> huge string
+		`{"format":"{x}","x":["1"],"repeat":2000000000}`, // repeat -> multi-GB join
+	}
+	for _, tmpl := range bad {
+		if _, err := compile(parse(t, tmpl)); err == nil {
+			t.Errorf("compile(%s) = nil error, want a limit rejection", tmpl)
+		}
+	}
+	// Ordinary values still compile.
+	if _, err := compile(parse(t, `{"format":"{hex(16)} {int(-5,5)} {float(0,1,3)} {calc(1+1,2)}"}`)); err != nil {
+		t.Errorf("compile of normal args failed: %v", err)
+	}
+}
+
 func TestBuiltinIBAN(t *testing.T) {
 	wantLen := map[string]int{"SE": 24, "DE": 22, "NO": 15}
 	f := engine(1)

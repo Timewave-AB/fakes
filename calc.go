@@ -10,9 +10,9 @@ import (
 
 // calc is the {calc(expr[, dp])} token: an arithmetic expression over number
 // literals and sibling-field names (rendered, then parsed as numbers), with
-// + - * /, unary minus and parentheses. Unlike a builtin it reads the field
-// environment, so expand and checkTokens route it here rather than the builtins
-// registry. The value prints in minimal decimal form, or rounded to dp decimals
+// + - * /, unary minus and parentheses. It is a registry builtin like any other
+// {name(args)} function — the one whose check and call read the sibling fields (to
+// render its operands). The value prints in minimal decimal form, or rounded to dp
 // when given. A field that doesn't render to a number becomes NaN, which
 // propagates and prints as "NaN" — visible, never a render error. The expression
 // is re-parsed each render, mirroring how expand re-scans the format; checkCalc
@@ -58,8 +58,10 @@ func (n calcBin) eval(s *session, fields map[string]node) float64 {
 }
 
 // checkCalc validates a calc token at compile time: a parseable expression whose
-// operands all name existing fields, and an optional non-negative integer dp.
-func checkCalc(args []string, fields map[string]node) error {
+// operands all name existing fields, and an optional non-negative integer dp. It
+// is a builtin check (fields first), so calc dispatches through the registry like
+// every other {name(args)} function.
+func checkCalc(fields map[string]node, args []string) error {
 	if len(args) < 1 || len(args) > 2 {
 		return fmt.Errorf("calc takes an expression and an optional decimals count, got %d args", len(args))
 	}
@@ -73,23 +75,43 @@ func checkCalc(args []string, fields map[string]node) error {
 		}
 	}
 	if len(args) == 2 {
-		if dp, err := strconv.Atoi(args[1]); err != nil || dp < 0 {
-			return fmt.Errorf("calc decimals %q must be a non-negative integer", args[1])
+		if dp, err := strconv.Atoi(args[1]); err != nil || dp < 0 || dp > maxDecimals {
+			return fmt.Errorf("calc decimals %q must be an integer in 0..%d", args[1], maxDecimals)
 		}
 	}
 	return nil
 }
 
-// calcEval renders a calc token. checkCalc proved the expression parses and the
+// calcCall renders a calc token. checkCalc proved the expression parses and the
 // decimals arg is valid, so neither step here can fail. dp -1 prints the minimal
-// form; a given dp rounds to that many places.
-func calcEval(s *session, args []string, fields map[string]node) string {
+// form; a given dp rounds to that many places. The emitted-so-far arg is unused —
+// calc reads sibling fields, not the preceding output.
+func calcCall(s *session, _ string, fields map[string]node, args []string) string {
 	expr, _ := parseCalc(args[0])
 	dp := -1
 	if len(args) == 2 {
 		dp = atoi(args[1])
 	}
 	return strconv.FormatFloat(expr.eval(s, fields), 'f', dp, 64)
+}
+
+// calcOperands lists the sibling-field names every {calc(...)} token in a format
+// reads, so cycle detection sees the field edges calc renders through (a function
+// token otherwise carries no field edge).
+func calcOperands(format string) []string {
+	var names []string
+	_ = eachToken(format, func(t ftoken) error {
+		if t.kind != 'b' {
+			return nil
+		}
+		if name, args, ok := funcCall(t.body); ok && name == "calc" && len(args) >= 1 {
+			if expr, err := parseCalc(args[0]); err == nil {
+				names = append(names, calcVars(expr)...)
+			}
+		}
+		return nil
+	})
+	return names
 }
 
 // calcVars lists the field names an expression references, for the existence

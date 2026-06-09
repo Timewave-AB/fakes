@@ -38,14 +38,18 @@ fakes -data-path ./data/sv_SE -data-path ./mydata word  # layer dirs; the last w
 fakes -seed 42 -data-path ./data/sv_SE address
 fakes -repeat 3 -data-path ./data/sv_SE person             # three values, one per line
 fakes -repeat 3 -separator ', ' -data-path ./data/sv_SE word  # nät, barn, sol
+fakes -data-path ./data/sv_SE -list                        # every path this data offers
 ```
 
-`-data-path` is repeatable (last wins a name clash) and the path comes last, after
-the flags. `-repeat N` renders the path N times — each an independent draw — joined
-by `-separator` (default a newline, so values land one per line).
+`-data-path` is repeatable (last wins a name clash) and the path comes last —
+all flags must precede it. `-repeat N` renders the path N times — each an
+independent draw — joined by `-separator` (default a newline, so values land one
+per line). Not sure what a data set offers? `-list` prints every path you can ask
+for; `-version` prints the build version.
 
 Without installing, run it from a checkout with `go run ./cmd/fakes …`. Exit
-codes: `0` success, `1` runtime error (missing dir, unknown path), `2` misuse.
+codes: `0` success (including `-list`, `-version`, `-h`), `1` runtime error
+(missing dir, unknown path), `2` misuse.
 
 ### Generating a file from a custom template
 
@@ -135,6 +139,9 @@ av, _ := a.Fake("person")
 bv, _ := b.Fake("person")
 av == bv // true
 ```
+
+`f.List()` returns the sorted paths the loaded data offers — the categories, their
+dotted fields and folder segments (what the CLI's `-list` prints).
 
 A `*Fakes` is **not** safe for concurrent use — create one per goroutine.
 
@@ -248,7 +255,9 @@ There are four kinds. **Derivations** read the digits emitted so far, so put the
 after their payload; **generators** read only the rng, so they stand alone; one
 **session counter** (`seq`) advances state held on the faker; and one
 **computation** (`calc`) evaluates arithmetic over sibling fields. Arguments are
-validated at `New` (a bad count, range, country, or expression fails fast).
+validated at `New` (a bad count, range, country, or expression fails fast); a
+length, count or decimal place beyond a sane maximum is rejected there too, so a
+fat-fingered `hex(2000000000)` can't try to allocate gigabytes at render.
 
 | Function | Kind | Emits |
 |----------|------|-------|
@@ -292,7 +301,8 @@ hyphenated field name can't be an operand. The expression is checked at `New`
 renders `19.99 x 3 = 59.97`. Each name is rendered where it appears, so a field
 shown *and* used in a `calc` is drawn twice — keep a shared operand in a
 single-value field if the two must agree. A field that doesn't render to a number
-yields `NaN`, which prints rather than failing the render.
+yields `NaN`, and a division by zero yields `Inf`; both print rather than failing
+the render.
 
 **References.** A `{..path}` token renders a node from the **data root** instead
 of a sibling field — the dot path is the one `Fake` takes, resolved across every
@@ -305,8 +315,9 @@ data dirs:
 
 renders e.g. `Hej, Pat Smith!`. References are bound when you create the faker, so
 a path that is unknown, names a folder, or steps through a multi-variant choice
-fails at `New`. A reference must not lead back to its own value (directly or
-through a chain), or rendering won't terminate.
+fails at `New`. A reference that leads back to its own value (directly, mutually,
+or through a chain) is a cycle that would never finish rendering, so it too is
+rejected at `New`.
 
 **Format string.** Every character is literal except:
 
@@ -323,6 +334,11 @@ through a chain), or rendering won't terminate.
 
 `{a|b}` renders one of the sibling fields `a` or `b`, chosen at random; an arm
 may be a `{..path}` reference too (`{name|..en_US.person}`).
+
+Inside a `format`, `0 1 A a` are **always** character classes — so a fixed digit
+or letter must be escaped (`#1`, `#A`) or it becomes random. A format of
+`100 Main St` renders e.g. `506 mdin street`, not `100 Main St`. For a value with
+no tokens at all, use a bare string node (`"100 Main St"`), emitted verbatim.
 
 **Putting it together** (`person.json`):
 
@@ -396,12 +412,15 @@ docker compose run --rm test                   # latest
 ## Layout
 
 ```
-fakes.go        Fakes, New, options, seeding
-template.go     Fake, the recursive renderer (choices, format strings, paths)
+fakes.go        Fakes, New, List, options, seeding
+node.go         the node model and JSON -> node compilation
+render.go       Fake and the recursive renderer (choices, format strings, paths)
+template.go     the {token} grammar: scanning, function tokens, validation
+reference.go    {..path} binding across the tree, and cycle detection
 builtins.go     the {name()} function registry and its implementations
 calc.go         the {calc()} arithmetic evaluator: parser, eval, validation
 data.go         data loading: folders/files -> namespace tree, multi-path merge
-cmd/fakes/      the `fakes` CLI (New + Fake over stdout)
+cmd/fakes/      the `fakes` CLI (New + Fake/List over stdout)
 data/           shipped data (JSON): locale folders + a misc folder
 ```
 

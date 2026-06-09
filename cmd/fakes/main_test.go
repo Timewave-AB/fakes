@@ -145,6 +145,42 @@ func TestRunUnknownCategoryFails(t *testing.T) {
 	}
 }
 
+func TestRunList(t *testing.T) {
+	// -list prints the discoverable paths and exits 0, no positional path needed.
+	code, out, errb := runOut("-data-path", svSE, "-list")
+	if code != 0 {
+		t.Fatalf("run = %d, stderr=%q", code, errb)
+	}
+	for _, want := range []string{"person", "person.last", "address"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("list output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestRunHelpExitsZero(t *testing.T) {
+	// -h/-help is success (0), not misuse (2), so scripts under `set -e` survive.
+	for _, h := range []string{"-h", "-help"} {
+		code, _, errb := runOut(h)
+		if code != 0 {
+			t.Errorf("%s = %d, want 0", h, code)
+		}
+		if !strings.Contains(errb, "Usage") {
+			t.Errorf("%s: stderr = %q, want usage", h, errb)
+		}
+	}
+}
+
+func TestRunVersion(t *testing.T) {
+	code, out, errb := runOut("-version")
+	if code != 0 {
+		t.Fatalf("-version = %d, stderr=%q", code, errb)
+	}
+	if strings.TrimSpace(out) == "" {
+		t.Error("-version: want a version on stdout")
+	}
+}
+
 func TestRunMissingDirFails(t *testing.T) {
 	code, _, errb := runOut("-data-path", "../../data/nope", "person")
 	if code != 1 {

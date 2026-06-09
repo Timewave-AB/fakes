@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/rand/v2"
+	"sort"
 )
 
 // Fakes generates fake data from a loaded namespace tree. Create one with [New].
@@ -73,6 +74,50 @@ func New(paths []string, opts ...Option) (*Fakes, error) {
 		opt(&c)
 	}
 	return &Fakes{rand: newRand(c.seed, c.seeded), categories: cats}, nil
+}
+
+// List returns the sorted dotted paths Fake can render: every category, the
+// dotted fields within a template, and folder segments — descending transparently
+// through single-variant choices the way a reference does. A multi-variant choice
+// is one path (its pick is random); its items are not separately addressable. It's
+// the discoverable map of what a loaded data set offers, powering the CLI's -list.
+func (f *Fakes) List() []string {
+	var out []string
+	var walk func(prefix string, n node)
+	walk = func(prefix string, n node) {
+		switch n := n.(type) {
+		case *group:
+			for name, c := range n.children {
+				walk(join(prefix, name), c)
+			}
+		case *choice:
+			if len(n.items) == 1 { // a single-variant choice is a transparent wrapper
+				walk(prefix, n.items[0])
+				return
+			}
+			out = append(out, prefix)
+		case *template:
+			out = append(out, prefix)
+			for name, c := range n.fields {
+				if isRef(name) { // a bound {..path} reference, not an authored field
+					continue
+				}
+				walk(join(prefix, name), c)
+			}
+		case literal:
+			out = append(out, prefix)
+		}
+	}
+	walk("", &group{children: f.categories})
+	sort.Strings(out)
+	return out
+}
+
+func join(prefix, name string) string {
+	if prefix == "" {
+		return name
+	}
+	return prefix + "." + name
 }
 
 func newRand(seed uint64, seeded bool) *session {

@@ -3,8 +3,17 @@ package fakes
 import (
 	"encoding/base64"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
+)
+
+// maxLen caps generator output lengths (hex, nanoid, base64) and maxDecimals caps
+// float/calc decimal places, so a fat-fingered or overflowing argument fails at
+// New instead of trying to allocate gigabytes — or panicking — at render.
+const (
+	maxLen      = 1 << 20 // 1,048,576 chars/bytes
+	maxDecimals = 1024
 )
 
 // builtins is the registry of {name(args)} functions. Two kinds: derivations read
@@ -15,26 +24,31 @@ import (
 // the wall clock. Add a builtin only for what data can't express: a random v4
 // UUID already ships as data (data/misc/uuid.json), so the builtin is v7.
 var builtins = map[string]builtin{
-	"luhn":     {arity: 0, call: func(_ *session, e string, _ []string) string { return string(rune('0' + luhnCheck(e))) }},
-	"mod11":    {arity: 0, call: func(_ *session, e string, _ []string) string { return mod11Check(e) }},
-	"ean":      {arity: 0, call: func(_ *session, e string, _ []string) string { return eanCheck(e) }},
-	"uuid":     {arity: 0, call: func(s *session, _ string, _ []string) string { return uuidV7(s) }},
-	"ulid":     {arity: 0, call: func(s *session, _ string, _ []string) string { return ulid(s) }},
-	"objectid": {arity: 0, call: func(s *session, _ string, _ []string) string { return randHex(s, 24) }},
-	"nanoid":   {arity: 1, check: posIntArg, call: func(s *session, _ string, a []string) string { return nanoid(s, atoi(a[0])) }},
-	"hex":      {arity: 1, check: posIntArg, call: func(s *session, _ string, a []string) string { return randHex(s, atoi(a[0])) }},
-	"base64": {arity: 1, check: posIntArg, call: func(s *session, _ string, a []string) string {
+	"luhn": {arity: 0, call: func(_ *session, e string, _ map[string]node, _ []string) string {
+		return string(rune('0' + luhnCheck(e)))
+	}},
+	"mod11":    {arity: 0, call: func(_ *session, e string, _ map[string]node, _ []string) string { return mod11Check(e) }},
+	"ean":      {arity: 0, call: func(_ *session, e string, _ map[string]node, _ []string) string { return eanCheck(e) }},
+	"uuid":     {arity: 0, call: func(s *session, _ string, _ map[string]node, _ []string) string { return uuidV7(s) }},
+	"ulid":     {arity: 0, call: func(s *session, _ string, _ map[string]node, _ []string) string { return ulid(s) }},
+	"objectid": {arity: 0, call: func(s *session, _ string, _ map[string]node, _ []string) string { return randHex(s, 24) }},
+	"nanoid":   {arity: 1, check: posIntArg, call: func(s *session, _ string, _ map[string]node, a []string) string { return nanoid(s, atoi(a[0])) }},
+	"hex":      {arity: 1, check: posIntArg, call: func(s *session, _ string, _ map[string]node, a []string) string { return randHex(s, atoi(a[0])) }},
+	"base64": {arity: 1, check: posIntArg, call: func(s *session, _ string, _ map[string]node, a []string) string {
 		return base64.StdEncoding.EncodeToString(randBytes(s, atoi(a[0])))
 	}},
-	"int": {arity: 2, check: intRangeArgs, call: func(s *session, _ string, a []string) string {
+	"int": {arity: 2, check: intRangeArgs, call: func(s *session, _ string, _ map[string]node, a []string) string {
 		return strconv.Itoa(atoi(a[0]) + s.IntN(atoi(a[1])-atoi(a[0])+1))
 	}},
 	"float": {arity: 3, check: floatArgs, call: floatCall},
-	"iban":  {arity: 1, check: ibanArg, call: func(s *session, _ string, a []string) string { return iban(s, a[0]) }},
+	"iban":  {arity: 1, check: ibanArg, call: func(s *session, _ string, _ map[string]node, a []string) string { return iban(s, a[0]) }},
+	// calc is the one builtin that reads the sibling fields (to render its operands);
+	// every other ignores them. 1 or 2 args: the expression and an optional decimals.
+	"calc": {arity: -1, check: checkCalc, call: calcCall},
 	// seq is the one stateful builtin: a per-session counter from 1, advancing on
 	// each call. An optional name selects an independent counter; no name uses the
 	// default one. Deterministic by construction, so a seeded faker stays stable.
-	"seq": {arity: -1, check: seqArg, call: func(s *session, _ string, a []string) string {
+	"seq": {arity: -1, check: seqArg, call: func(s *session, _ string, _ map[string]node, a []string) string {
 		key := ""
 		if len(a) == 1 {
 			key = a[0]
@@ -64,14 +78,18 @@ func randHex(r rng, n int) string {
 	return string(b)
 }
 
-func posIntArg(a []string) error {
-	if n, err := strconv.Atoi(a[0]); err != nil || n < 1 {
+func posIntArg(_ map[string]node, a []string) error {
+	n, err := strconv.Atoi(a[0])
+	if err != nil || n < 1 {
 		return fmt.Errorf("count %q must be a positive integer", a[0])
+	}
+	if n > maxLen {
+		return fmt.Errorf("count %d exceeds the maximum %d", n, maxLen)
 	}
 	return nil
 }
 
-func intRangeArgs(a []string) error {
+func intRangeArgs(_ map[string]node, a []string) error {
 	lo, e1 := strconv.Atoi(a[0])
 	hi, e2 := strconv.Atoi(a[1])
 	if e1 != nil || e2 != nil {
@@ -80,10 +98,13 @@ func intRangeArgs(a []string) error {
 	if lo > hi {
 		return fmt.Errorf("int(min,max): min %d > max %d", lo, hi)
 	}
+	if uint64(hi)-uint64(lo) >= uint64(math.MaxInt64) { // span hi-lo+1 would overflow int -> IntN panic
+		return fmt.Errorf("int(min,max): range %d..%d is too wide", lo, hi)
+	}
 	return nil
 }
 
-func floatArgs(a []string) error {
+func floatArgs(_ map[string]node, a []string) error {
 	lo, e1 := strconv.ParseFloat(a[0], 64)
 	hi, e2 := strconv.ParseFloat(a[1], 64)
 	dp, e3 := strconv.Atoi(a[2])
@@ -93,19 +114,22 @@ func floatArgs(a []string) error {
 	if lo > hi {
 		return fmt.Errorf("float(min,max,dp): min %v > max %v", lo, hi)
 	}
-	if dp < 0 {
-		return fmt.Errorf("float(min,max,dp): decimals %d < 0", dp)
+	if math.IsInf(hi-lo, 0) { // an overflowing span would render as "+Inf"
+		return fmt.Errorf("float(min,max,dp): range %v..%v is too wide", lo, hi)
+	}
+	if dp < 0 || dp > maxDecimals {
+		return fmt.Errorf("float(min,max,dp): decimals %d out of range 0..%d", dp, maxDecimals)
 	}
 	return nil
 }
 
-func floatCall(s *session, _ string, a []string) string {
+func floatCall(s *session, _ string, _ map[string]node, a []string) string {
 	lo, _ := strconv.ParseFloat(a[0], 64)
 	hi, _ := strconv.ParseFloat(a[1], 64)
 	return strconv.FormatFloat(lo+s.Float64()*(hi-lo), 'f', atoi(a[2]), 64)
 }
 
-func seqArg(a []string) error {
+func seqArg(_ map[string]node, a []string) error {
 	if len(a) > 1 {
 		return fmt.Errorf("seq takes at most one name, got %d args", len(a))
 	}
@@ -231,7 +255,7 @@ func eanCheck(s string) string {
 // a left-to-right derivation; it generates the whole value instead.
 var ibanLen = map[string]int{"BE": 16, "DE": 22, "DK": 18, "ES": 24, "FI": 18, "NO": 15, "SE": 24}
 
-func ibanArg(a []string) error {
+func ibanArg(_ map[string]node, a []string) error {
 	if _, ok := ibanLen[a[0]]; !ok {
 		return fmt.Errorf("iban(%q): unsupported country code", a[0])
 	}
