@@ -163,7 +163,11 @@ func expand(s *session, format string, fields map[string]node) string {
 			}
 			body := string(rs[i+1 : end])
 			if name, args, ok := funcCall(body); ok {
-				b.WriteString(builtins[name].call(s, b.String(), args)) // b.String() is the output so far
+				if name == "calc" { // calc reads sibling fields, not just (rng, emitted)
+					b.WriteString(calcEval(s, args, fields))
+				} else {
+					b.WriteString(builtins[name].call(s, b.String(), args)) // b.String() is the output so far
+				}
 			} else {
 				b.WriteString(resolve(s, body, fields))
 			}
@@ -342,7 +346,11 @@ func checkTokens(format string, fields map[string]node) error {
 			}
 			body := string(rs[i+1 : end])
 			if strings.IndexByte(body, '(') >= 0 { // a function token, not a field
-				if err := checkFunc(body); err != nil {
+				if name, args, ok := funcCall(body); ok && name == "calc" {
+					if err := checkCalc(args, fields); err != nil {
+						return fmt.Errorf("token {%s}: %w", body, err)
+					}
+				} else if err := checkFunc(body); err != nil {
 					return err
 				}
 			} else {

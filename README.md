@@ -244,10 +244,11 @@ reproducible. A time-based id (UUID v7, ULID) therefore draws its timestamp from
 the rng, not the clock — the result is a valid, reproducible value, not a real
 point in time.
 
-There are three kinds. **Derivations** read the digits emitted so far, so put them
+There are four kinds. **Derivations** read the digits emitted so far, so put them
 after their payload; **generators** read only the rng, so they stand alone; one
-**session counter** (`seq`) advances state held on the faker. Arguments are
-validated at `New` (a bad count, range, or country fails fast).
+**session counter** (`seq`) advances state held on the faker; and one
+**computation** (`calc`) evaluates arithmetic over sibling fields. Arguments are
+validated at `New` (a bad count, range, country, or expression fails fast).
 
 | Function | Kind | Emits |
 |----------|------|-------|
@@ -264,6 +265,7 @@ validated at `New` (a bad count, range, or country fails fast).
 | `{float(min,max,dp)}` | generator | number in `[min, max]` with `dp` decimals |
 | `{iban(CC)}` | generator | a length- and mod-97-valid IBAN for country `CC` (BE, DE, DK, ES, FI, NO, SE) |
 | `{seq()}`, `{seq(name)}` | session counter | next integer (from 1) in this faker's sequence; `name` selects an independent counter |
+| `{calc(expr)}`, `{calc(expr,dp)}` | computation | value of an arithmetic expression over number literals and sibling fields; `dp` rounds |
 
 `{ean()}` is also the ISBN-13 check (an ISBN-13 *is* an EAN-13 — build the 978/979
 prefix in data and call `{ean()}`). `{iban()}` is a generator, not a derivation:
@@ -274,6 +276,23 @@ length and checksum, not real bank routing).
 `{seq()}`'s counter lives on the faker, so it spans `Fake` calls (and `repeat`)
 and resets when you build a new faker — `seq` is reproducible by being ordered,
 not random. It's the natural fit for a primary-key column in the SQL example above.
+
+**Computation.** `{calc(expr)}` evaluates an arithmetic expression — `+ - * /`,
+parentheses and unary minus, the usual precedence — and emits the result. Operands
+are number literals and **sibling field names**, each rendered then read as a
+number; an optional second arg rounds to that many decimals (`{calc(net * qty, 2)}`),
+otherwise the value prints in minimal form. A hyphen is always subtraction, so a
+hyphenated field name can't be an operand. The expression is checked at `New`
+(parse, and that every name is a real field):
+
+```json
+{ "format": "{net} x {qty} = {calc(net * qty, 2)}", "net": ["19.99"], "qty": ["3"] }
+```
+
+renders `19.99 x 3 = 59.97`. Each name is rendered where it appears, so a field
+shown *and* used in a `calc` is drawn twice — keep a shared operand in a
+single-value field if the two must agree. A field that doesn't render to a number
+yields `NaN`, which prints rather than failing the render.
 
 **References.** A `{..path}` token renders a node from the **data root** instead
 of a sibling field — the dot path is the one `Fake` takes, resolved across every
@@ -380,6 +399,7 @@ docker compose run --rm test                   # latest
 fakes.go        Fakes, New, options, seeding
 template.go     Fake, the recursive renderer (choices, format strings, paths)
 builtins.go     the {name()} function registry and its implementations
+calc.go         the {calc()} arithmetic evaluator: parser, eval, validation
 data.go         data loading: folders/files -> namespace tree, multi-path merge
 cmd/fakes/      the `fakes` CLI (New + Fake over stdout)
 data/           shipped data (JSON): locale folders + a misc folder

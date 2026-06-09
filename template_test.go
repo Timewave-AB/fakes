@@ -193,6 +193,14 @@ func TestCompileErrors(t *testing.T) {
 		`{"format":"{float(1,2,-1)}"}`,                                  // negative decimals
 		`{"format":"{iban(US)}"}`,                                       // unsupported country
 		`{"format":"{seq(a,b)}"}`,                                       // seq takes at most one name
+		`{"format":"{calc()}"}`,                                         // calc needs an expression
+		`{"format":"{calc(1 +)}"}`,                                      // dangling operator
+		`{"format":"{calc((1 + 2)}"}`,                                   // unbalanced parenthesis
+		`{"format":"{calc(1 2)}"}`,                                      // two operands, no operator
+		`{"format":"{calc(price)}"}`,                                    // operand names no field
+		`{"format":"{calc(1, 2, 3)}"}`,                                  // too many args
+		`{"format":"{calc(1, x)}"}`,                                     // decimals arg not an integer
+		`{"format":"{calc(1, -1)}"}`,                                    // decimals negative
 	} {
 		if _, err := compile(parse(t, bad)); err == nil {
 			t.Errorf("compile(%s) = nil error, want error", bad)
