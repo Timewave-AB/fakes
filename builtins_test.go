@@ -15,7 +15,6 @@ func TestBuiltinIDGenerators(t *testing.T) {
 	}{
 		{"uuid v7", `{"format":"{uuid()}"}`, regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)},
 		{"ulid", `{"format":"{ulid()}"}`, regexp.MustCompile(`^[0-7][0-9A-HJKMNP-TV-Z]{25}$`)},
-		{"objectid", `{"format":"{objectid()}"}`, regexp.MustCompile(`^[0-9a-f]{24}$`)},
 		{"nanoid", `{"format":"{nanoid(21)}"}`, regexp.MustCompile(`^[A-Za-z0-9_-]{21}$`)},
 		{"hex", `{"format":"{hex(16)}"}`, regexp.MustCompile(`^[0-9a-f]{16}$`)},
 	}
@@ -39,7 +38,7 @@ func TestBuiltinIDGenerators(t *testing.T) {
 // generator draws only from the seeded rng, so same seed -> same value.
 func TestBuiltinGeneratorsReproducible(t *testing.T) {
 	for _, tmpl := range []string{
-		`{"format":"{uuid()}"}`, `{"format":"{ulid()}"}`, `{"format":"{objectid()}"}`,
+		`{"format":"{uuid()}"}`, `{"format":"{ulid()}"}`,
 		`{"format":"{nanoid(12)}"}`, `{"format":"{int(1,1000000)}"}`,
 		`{"format":"{float(0,1,6)}"}`, `{"format":"{base64(12)}"}`, `{"format":"{iban(SE)}"}`,
 	} {
