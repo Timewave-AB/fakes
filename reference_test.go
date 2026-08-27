@@ -88,10 +88,57 @@ func TestReferenceErrors(t *testing.T) {
 		"chain cycle":  {"a": `{"format":"{..b}"}`, "b": `{"format":"{..c}"}`, "c": `{"format":"{..a}"}`},
 		// calc renders its operands, so a cycle through one must be caught too.
 		"calc operand cycle": {"x": `{"format":"{calc(y)}","y":[{"format":"{..x}"}]}`},
+		// A field its parent's format never renders is still reachable by dot path,
+		// so a cycle hiding in one must fail at New rather than at render.
+		"cycle in an unrendered field": {"cat": `{"format":"hi","x":{"format":"{..cat.x}"}}`},
+		"mutual cycle between unrendered fields": {
+			"cat": `{"format":"hi","x":{"format":"{..cat.y}"},"y":{"format":"{..cat.x}"}}`,
+		},
+		"cycle in an unrendered field of a choice arm": {
+			"cat": `[{"format":"hi","x":{"format":"{..cat.x}"}}]`,
+		},
 	}
 	for name, files := range cases {
 		if _, err := New([]string{writeData(t, files)}); err == nil {
 			t.Errorf("%s: New = nil error, want a reference error", name)
+		}
+	}
+}
+
+// TestReferenceFromUnrenderedFieldTerminates guards the cycle check against
+// over-rejecting: a field the format never renders may point back at its own
+// category, which terminates, and stays renderable by path.
+func TestReferenceFromUnrenderedFieldTerminates(t *testing.T) {
+	dir := writeData(t, map[string]string{"cat": `{"format":"hi","x":{"format":"see {..cat}"}}`})
+	f := newFakes(t, dir, WithSeed(1))
+	if got := fake(t, f, "cat"); got != "hi" {
+		t.Fatalf("cat = %q, want hi", got)
+	}
+	if got := fake(t, f, "cat.x"); got != "see hi" {
+		t.Fatalf("cat.x = %q, want \"see hi\"", got)
+	}
+}
+
+// TestNewErrorIsDeterministic pins one message per broken data set: map iteration
+// order must not decide which of several problems the user is told about.
+func TestNewErrorIsDeterministic(t *testing.T) {
+	dir := writeData(t, map[string]string{
+		"a": `{"format":"{..nope.one}"}`,
+		"b": `{"format":"{..nope.two}"}`,
+		"c": `{"format":"{..nope.three}"}`,
+	})
+	var first string
+	for i := 0; i < 50; i++ {
+		_, err := New([]string{dir})
+		if err == nil {
+			t.Fatal("New = nil error, want a reference error")
+		}
+		if i == 0 {
+			first = err.Error()
+			continue
+		}
+		if err.Error() != first {
+			t.Fatalf("New error varies between runs:\n  %s\n  %s", first, err.Error())
 		}
 	}
 }
