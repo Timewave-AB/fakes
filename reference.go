@@ -7,8 +7,10 @@ import (
 )
 
 // refPrefix marks a {..path} token: a reference to a node elsewhere in the data
-// root rather than a sibling field. The path after it is the same dot path Fake
-// takes, resolved across every loaded directory (see linkRefs).
+// root rather than a sibling field. The path is resolved across every loaded
+// directory (see linkRefs), and is stricter than the one Fake takes: a reference
+// binds one node, so it cannot step through a multi-variant choice even where Fake
+// and List can.
 const refPrefix = ".."
 
 func isRef(name string) bool { return strings.HasPrefix(name, refPrefix) }

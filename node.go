@@ -24,10 +24,13 @@ type group struct{ children map[string]node }
 func (*group) isNode() {}
 
 // choice picks one of its items. cum holds cumulative weights for a weighted
-// pick; when nil the choice is uniform and selection is O(1).
+// pick; when nil the choice is uniform and selection is O(1). shared is the set of
+// relative dot paths every item can address, so descend and List both read the one
+// answer to what a path may reach through this choice.
 type choice struct {
-	items []node
-	cum   []float64
+	items  []node
+	cum    []float64
+	shared map[string]bool
 }
 
 func (*choice) isNode() {}
@@ -88,6 +91,7 @@ func compileChoice(items []any) (node, error) {
 		}
 		c.cum = cum
 	}
+	c.shared = sharedPaths(c.items)
 	return c, nil
 }
 
