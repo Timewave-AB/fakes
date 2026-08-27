@@ -17,9 +17,15 @@
       },
       {
         "format": "{first}{last}",
-        "weight": 0.4,
-        "first": ["Hell", "Norr", "Wall"],
-        "last": ["berg", "blad", "crona", "dahl", "ed", "fors", "gren", "holm", "in", "kvist", "man", "mark", "qvist", "stedt", "sten", "strand", "ström", "vall"]
+        "weight": 0.267,
+        "first": ["Hell", "Wall"],
+        "last": ["berg", "blad", "crona", "dahl", "ed", "fors", "gren", "holm", "in", "kvist", "man", "mark", "qvist", "roth", "stedt", "sten", "strand", "ström", "vall"]
+      },
+      {
+        "format": "{first}{last}",
+        "weight": 0.133,
+        "first": ["Norr"],
+        "last": ["berg", "blad", "crona", "dahl", "ed", "fors", "gren", "holm", "in", "kvist", "löf", "lund", "man", "mark", "qvist", "stedt", "sten", "strand", "ström", "vall"]
       },
       ["Berg", "Blom", "Eismar", "Falk", "Holm", "Lind", "Norberg", "Strand", "Ström", "von Flemming", "Åberg", "Öberg"]
     ],

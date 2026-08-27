@@ -127,10 +127,9 @@ func TestShippedMiscReferenceData(t *testing.T) {
 	}
 }
 
-// TestSwedishNamesHaveNoTripleLetter pins an orthographic rule the shape regexes
-// miss: Swedish never triples a consonant, so no prefix/suffix pair in the name
-// data may compose one (Jöns+sson, Wall+lund, Norr+roth).
-func TestSwedishNamesHaveNoTripleLetter(t *testing.T) {
+// TestSwedishPersonNamesHaveNoTripleLetter pins an orthographic rule the shape
+// regexes miss: Swedish never triples a consonant.
+func TestSwedishPersonNamesHaveNoTripleLetter(t *testing.T) {
 	f := newFakes(t, "data/sv_SE", WithSeed(11))
 	for _, path := range []string{"person", "person.last"} {
 		for i := 0; i < 20000; i++ {

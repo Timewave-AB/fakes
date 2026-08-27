@@ -231,7 +231,8 @@ func TestShippedStreetComposition(t *testing.T) {
 }
 
 func TestShippedLastNameComposition(t *testing.T) {
-	// last is a choice of patronymic {first}sson templates and literal surnames.
+	// last is a choice of patronymic {first}sson templates, compound
+	// {first}{last} templates and literal surnames.
 	f := newFakes(t, "data/sv_SE", WithSeed(6))
 	for i := 0; i < 300; i++ {
 		if s := fake(t, f, "person.last"); !swedishName.MatchString(s) {
