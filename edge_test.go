@@ -91,7 +91,7 @@ func TestNewErrors(t *testing.T) {
 		},
 		"an option name used as a token": {
 			map[string]string{"a": `{"format":"{weight}"}`},
-			`"weight" is an option, never a field`,
+			`"weight" is an option and can never be a field`,
 		},
 		"category name with a dot": {
 			map[string]string{"a.b": `["1"]`},
