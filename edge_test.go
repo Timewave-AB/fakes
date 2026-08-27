@@ -89,6 +89,35 @@ func TestDescendIntoLiteralErrors(t *testing.T) {
 	}
 }
 
+// TestPathThroughChoice pins the rule that makes a dotted path predictable: a
+// choice consumes no segment, so a path may step through one only when every
+// variant carries the rest of it. Otherwise the same path would render or fail
+// depending on which variant the rng picked.
+func TestPathThroughChoice(t *testing.T) {
+	dir := writeData(t, map[string]string{
+		"every":  `[{"format":"{f}","f":["1"]},{"format":"{f}","f":["2"]}]`,
+		"notall": `[{"format":"{f}","f":["1"]},["plain"]]`,
+	})
+	f := newFakes(t, dir, WithSeed(1))
+	for i := 0; i < 200; i++ {
+		if got := fake(t, f, "every.f"); got != "1" && got != "2" {
+			t.Fatalf("every.f = %q, want 1 or 2", got)
+		}
+	}
+	var first string
+	for i := 0; i < 200; i++ {
+		_, err := f.Fake("notall.f")
+		if err == nil {
+			t.Fatal("notall.f = nil error, want the same failure every call")
+		}
+		if i == 0 {
+			first = err.Error()
+		} else if err.Error() != first {
+			t.Fatalf("notall.f error varies between calls:\n  %s\n  %s", first, err.Error())
+		}
+	}
+}
+
 // --- category root shapes ---
 
 func TestCategoryRootShapes(t *testing.T) {

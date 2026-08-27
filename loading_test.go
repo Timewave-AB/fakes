@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -14,9 +15,11 @@ func TestList(t *testing.T) {
 		"person":   `{"format":"{first} {last}","first":["A"],"last":["B"]}`,
 		"word":     `["x", "y"]`,
 		"geo/city": `["Z"]`,
+		// Only the fields every variant carries are addressable, so "extra" is not.
+		"coin": `[{"format":"{code}","code":["A"],"name":["Aa"]},{"format":"{code}","code":["B"],"name":["Bb"],"extra":["x"]}]`,
 	})
 	got := newFakes(t, dir, WithSeed(1)).List()
-	want := []string{"geo.city", "person", "person.first", "person.last", "word"}
+	want := []string{"coin", "coin.code", "coin.name", "geo.city", "person", "person.first", "person.last", "word"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("List() = %v, want %v", got, want)
 	}
@@ -129,5 +132,28 @@ func TestMultiPathMergesFolders(t *testing.T) {
 	}
 	if got := fake(t, f, "sv_SE.shared"); got != "b" {
 		t.Fatalf("sv_SE.shared = %q, want b (last loaded wins)", got)
+	}
+}
+
+// TestListedPathsAllRender is the contract between List and Fake over the shipped
+// tree: everything List advertises renders, every time, and the sub-fields the
+// README advertises are discoverable.
+func TestListedPathsAllRender(t *testing.T) {
+	f := newFakes(t, "data", WithSeed(4))
+	paths := f.List()
+	if len(paths) < 50 {
+		t.Fatalf("List() = %d paths, want the whole shipped tree", len(paths))
+	}
+	for _, p := range paths {
+		for i := 0; i < 20; i++ {
+			if _, err := f.Fake(p); err != nil {
+				t.Fatalf("Fake(%q) = %v, but List() advertises it", p, err)
+			}
+		}
+	}
+	for _, p := range []string{"misc.car.maker", "misc.country.alpha2", "misc.currency.symbol", "misc.httpstatus.code", "misc.mimetype.ext"} {
+		if !slices.Contains(paths, p) {
+			t.Errorf("List() omits %q, which the README advertises and Fake renders", p)
+		}
 	}
 }
