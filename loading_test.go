@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -153,6 +154,30 @@ func TestListedPathsAllRender(t *testing.T) {
 	for _, p := range []string{"misc.car.maker", "misc.country.alpha2", "misc.currency.symbol", "misc.httpstatus.code", "misc.mimetype.ext"} {
 		if !slices.Contains(paths, p) {
 			t.Errorf("List() omits %q, which the README advertises and Fake renders", p)
+		}
+	}
+}
+
+// TestHiddenEntriesAreSkipped keeps a data directory usable when it is also a
+// checkout or an editor workspace: a dot-prefixed entry is not data, and a folder
+// carrying no JSON never contributed a namespace, so neither may fail the load.
+func TestHiddenEntriesAreSkipped(t *testing.T) {
+	dir := writeData(t, map[string]string{
+		"cat":              `["V"]`,
+		".git/HEAD":        `["ignored"]`,
+		".hidden":          `["ignored"]`,
+		"empty.folder/doc": `["ignored"]`,
+	})
+	if err := os.Rename(filepath.Join(dir, "empty.folder", "doc.json"), filepath.Join(dir, "empty.folder", "doc.txt")); err != nil {
+		t.Fatal(err)
+	}
+	f := newFakes(t, dir, WithSeed(1))
+	if got := fake(t, f, "cat"); got != "V" {
+		t.Fatalf("cat = %q, want V", got)
+	}
+	for _, p := range f.List() {
+		if strings.HasPrefix(p, ".") || strings.Contains(p, "empty.folder") {
+			t.Errorf("List() advertises %q, which is not data", p)
 		}
 	}
 }
