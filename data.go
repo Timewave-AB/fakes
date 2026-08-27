@@ -53,6 +53,9 @@ func loadDir(dir string) (*group, error) {
 	}
 	g := &group{children: map[string]node{}}
 	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".") { // hidden: a checkout or an editor's file, never data
+			continue
+		}
 		full := filepath.Join(dir, e.Name())
 		if e.IsDir() {
 			if isRef(e.Name()) {
@@ -62,9 +65,13 @@ func loadDir(dir string) (*group, error) {
 			if err != nil {
 				return nil, err
 			}
-			if len(child.children) > 0 {
-				g.children[e.Name()] = child
+			if len(child.children) == 0 {
+				continue
 			}
+			if err := checkName(e.Name()); err != nil {
+				return nil, fmt.Errorf("%s: folder %w", full, err)
+			}
+			g.children[e.Name()] = child
 			continue
 		}
 		if !strings.HasSuffix(e.Name(), ".json") {
@@ -73,6 +80,9 @@ func loadDir(dir string) (*group, error) {
 		name := strings.TrimSuffix(e.Name(), ".json")
 		if isRef(name) {
 			return nil, fmt.Errorf("%s: category %q starts with %q, which is reserved for {..path} bindings", full, name, refPrefix)
+		}
+		if err := checkName(name); err != nil {
+			return nil, fmt.Errorf("%s: category %w", full, err)
 		}
 		b, err := os.ReadFile(full)
 		if err != nil {

@@ -152,8 +152,9 @@ A `*Fakes` is **not** safe for concurrent use — create one per goroutine.
 
 The library ships a ready-to-use set under [`data/`](data): one folder per locale
 (`en_US`, `sv_SE`) plus a locale-neutral `misc` folder. Point either tool at the
-whole tree, a single folder, a copy, or your own directory — anywhere on disk; no
-naming rules.
+whole tree, a single folder, a copy, or your own directory — anywhere on disk. A
+category or folder name must not contain a dot, and dot-prefixed entries are
+skipped, so a data directory can also be a checkout.
 
 A directory is just a namespace. Each JSON file is a category named after the
 file; each subdirectory is a dot-path segment — folders nest exactly like JSON
@@ -228,6 +229,12 @@ fast instead of silently skewing output.
 
 This yields e.g. `bar foo baz`. `repeat` must be a positive integer and
 `separator` a string, both checked at `New`.
+
+`format`, `weight`, `repeat` and `separator` are the only options; **any other key
+is a field**. So write `seperator` and you get a field by that name while the
+option stays unset. `New` rejects an option that cannot take effect — a
+`separator` without a `repeat` above 1, a `weight` outside a choice — and a
+category or folder name containing a dot, which no dot path could reach.
 
 **Functions.** A `{name()}` token calls a built-in function instead of rendering
 a field. `{luhn()}` appends a Luhn check digit over the digits emitted **so far**
