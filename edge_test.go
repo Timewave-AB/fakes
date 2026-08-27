@@ -89,10 +89,8 @@ func TestDescendIntoLiteralErrors(t *testing.T) {
 	}
 }
 
-// TestPathThroughChoice pins the rule that makes a dotted path predictable: a
-// choice consumes no segment, so a path may step through one only when every
-// variant carries the rest of it. Otherwise the same path would render or fail
-// depending on which variant the rng picked.
+// TestPathThroughChoice pins the rule that keeps a dotted path from rendering on
+// one call and failing on the next: every variant must carry the rest of the path.
 func TestPathThroughChoice(t *testing.T) {
 	dir := writeData(t, map[string]string{
 		"every":  `[{"format":"{f}","f":["1"]},{"format":"{f}","f":["2"]}]`,

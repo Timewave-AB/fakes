@@ -364,9 +364,9 @@ no tokens at all, use a bare string node (`"100 Main St"`), emitted verbatim.
 This yields e.g. `Anna Eriksson`, `Erik Berg`, or rarely `dr Astrid von Flemming`.
 Any field is reachable by dotted path — `Fake("person.last")` renders just a
 surname; choices along the path are resolved at random. A path may continue
-*through* a choice only where every variant carries the rest of it (so
-`currency.symbol` works across all 16 currency variants), which keeps a path from
-rendering on one call and failing on the next.
+*through* a choice only where every variant carries the rest of it — `misc`'s
+`currency` has 16 variants and every one carries `symbol`, so `currency.symbol`
+resolves — which keeps a path from rendering on one call and failing on the next.
 
 ### Performance
 
