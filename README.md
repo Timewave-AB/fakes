@@ -178,9 +178,9 @@ Swedish personnummer): `address`, `color`, `company`, `date`, `email`, `ip`,
 `data/misc` carries locale-neutral categories — universal data that isn't tied to
 a language or region:
 
-- ids & networking: `uuid` (a proper random v4), `mac`, `objectid` (MongoDB
-  ObjectID, 24 hex chars), `creditcard` (per-network numbers ending in a valid
-  `{luhn()}` digit)
+- ids & networking: `uuid` (a proper random v4), `mac`, `objectid` (24 hex chars,
+  MongoDB ObjectID-shaped — the leading bytes are random, not a real timestamp),
+  `creditcard` (per-network numbers ending in a valid `{luhn()}` digit)
 - reference codes: `currency` (ISO 4217), `country` (ISO 3166), `language` (ISO
   639), `timezone` (IANA)
 - web & systems: `mimetype`, `httpstatus`, `useragent`
