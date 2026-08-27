@@ -2,6 +2,7 @@ package fakes
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -30,9 +31,9 @@ func (f *Fakes) Fake(path string) (string, error) {
 
 // descend walks named fields to the node a path names. It is the one render-side
 // step that can fail, because the path comes from the caller and may name a field
-// that does not exist. A choice consumes no segment, so every variant must carry
-// the rest of the path before one is picked at random — a path that resolves at
-// all resolves on every call. A nil session validates without picking.
+// that does not exist. A choice consumes no segment, so the rest of the path must
+// be one every variant carries (the set compile stored) before a variant is picked
+// — a path that resolves at all resolves on every call.
 func descend(s *session, n node, segments []string) (node, error) {
 	if len(segments) == 0 {
 		return n, nil
@@ -51,18 +52,9 @@ func descend(s *session, n node, segments []string) (node, error) {
 		}
 		return descend(s, child, segments[1:])
 	case *choice:
-		for i, item := range n.items {
-			_, err := descend(nil, item, segments)
-			if err == nil {
-				continue
-			}
-			if len(n.items) == 1 { // a single-variant choice is a transparent wrapper
-				return nil, err
-			}
-			return nil, fmt.Errorf("variant %d of a %d-way choice: %w", i+1, len(n.items), err)
-		}
-		if s == nil {
-			return n, nil
+		want := strings.Join(segments, ".")
+		if !n.shared[want] {
+			return nil, unreachableInChoice(n, want)
 		}
 		return descend(s, pick(s, n), segments)
 	case literal:
@@ -70,6 +62,19 @@ func descend(s *session, n node, segments []string) (node, error) {
 	default:
 		return nil, fmt.Errorf("cannot descend into %T at %q", n, segments[0])
 	}
+}
+
+// unreachableInChoice names the first variant that cannot address want. It walks
+// the variants, which only a failing path does.
+func unreachableInChoice(c *choice, want string) error {
+	if len(c.items) > 1 {
+		for i, item := range c.items {
+			if !slices.Contains(paths(item), want) {
+				return fmt.Errorf("variant %d of a %d-way choice cannot reach %q", i+1, len(c.items), want)
+			}
+		}
+	}
+	return fmt.Errorf("cannot reach %q", want)
 }
 
 // render evaluates a compiled node to a string. compile validates every node up

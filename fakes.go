@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/rand/v2"
+	"slices"
 	"sort"
 )
 
@@ -89,7 +90,7 @@ func (f *Fakes) List() []string {
 		}
 	}
 	sort.Strings(out)
-	return out
+	return slices.Compact(out)
 }
 
 // paths lists the dot paths addressable from n, relative to it, where "" is n
@@ -119,7 +120,11 @@ func paths(n node) []string {
 		if len(n.items) == 1 {
 			return paths(n.items[0])
 		}
-		return append([]string{""}, sharedPaths(n.items)...)
+		out := []string{""}
+		for p := range n.shared {
+			out = append(out, p)
+		}
+		return out
 	case literal:
 		return []string{""}
 	}
@@ -127,24 +132,27 @@ func paths(n node) []string {
 }
 
 // sharedPaths is the sub-paths every item carries — the only ones a path may step
-// through a multi-variant choice to reach.
-func sharedPaths(items []node) []string {
+// through a multi-variant choice to reach. An item is counted once per path, since
+// one item offering a path twice does not make it shared.
+func sharedPaths(items []node) map[string]bool {
 	count := map[string]int{}
 	for _, it := range items {
+		seen := map[string]bool{}
 		for _, p := range paths(it) {
-			if p != "" {
-				count[p]++
+			if p == "" || seen[p] {
+				continue
 			}
+			seen[p] = true
+			count[p]++
 		}
 	}
-	var out []string
+	shared := map[string]bool{}
 	for p, n := range count {
 		if n == len(items) {
-			out = append(out, p)
+			shared[p] = true
 		}
 	}
-	sort.Strings(out)
-	return out
+	return shared
 }
 
 func join(prefix, name string) string {
