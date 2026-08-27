@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
+	"strings"
 	"testing"
 )
 
@@ -113,6 +115,49 @@ func TestPathThroughChoice(t *testing.T) {
 		} else if err.Error() != first {
 			t.Fatalf("notall.f error varies between calls:\n  %s\n  %s", first, err.Error())
 		}
+	}
+}
+
+// TestPathKeyIsUnambiguous pins the one shape that can collide: a field literally
+// named "a.b" in one variant and a field "a" holding "b" in another both spell the
+// dot path "a.b". Neither variant may inherit the other's, so the path must fail
+// the same way every call and must not be advertised.
+func TestPathKeyIsUnambiguous(t *testing.T) {
+	dir := writeData(t, map[string]string{
+		"cat": `[{"format":"{a.b}","a.b":["1"]},{"format":"{a}","a":{"format":"{b}","b":["2"]}}]`,
+	})
+	f := newFakes(t, dir, WithSeed(1))
+	if slices.Contains(f.List(), "cat.a.b") {
+		t.Errorf("List() advertises cat.a.b, which only one variant carries")
+	}
+	var first string
+	for i := 0; i < 200; i++ {
+		_, err := f.Fake("cat.a.b")
+		if err == nil {
+			t.Fatal("Fake(cat.a.b) = nil error, want the same failure every call")
+		}
+		if i == 0 {
+			first = err.Error()
+		} else if err.Error() != first {
+			t.Fatalf("cat.a.b error varies:\n  %s\n  %s", first, err.Error())
+		}
+	}
+	// Each variant still renders through its own token.
+	for i := 0; i < 50; i++ {
+		if got := fake(t, f, "cat"); got != "1" && got != "2" {
+			t.Fatalf("cat = %q, want 1 or 2", got)
+		}
+	}
+}
+
+// TestMissingFieldNamesItself keeps the precise diagnosis for the ordinary typo: a
+// single-variant choice always picks the same item, so it needs no every-variant
+// guard and the error can name the field that is missing.
+func TestMissingFieldNamesItself(t *testing.T) {
+	f := newFakes(t, "data/sv_SE", WithSeed(1))
+	_, err := f.Fake("person.typo")
+	if err == nil || !strings.Contains(err.Error(), `no field "typo"`) {
+		t.Errorf("Fake(person.typo) = %v, want it to name the missing field", err)
 	}
 }
 
