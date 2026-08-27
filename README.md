@@ -178,8 +178,9 @@ Swedish personnummer): `address`, `color`, `company`, `date`, `email`, `ip`,
 `data/misc` carries locale-neutral categories — universal data that isn't tied to
 a language or region:
 
-- ids & networking: `uuid` (a proper random v4), `mac`, `creditcard` (per-network
-  numbers ending in a valid `{luhn()}` digit)
+- ids & networking: `uuid` (a proper random v4), `mac`, `objectid` (MongoDB
+  ObjectID, 24 hex chars), `creditcard` (per-network numbers ending in a valid
+  `{luhn()}` digit)
 - reference codes: `currency` (ISO 4217), `country` (ISO 3166), `language` (ISO
   639), `timezone` (IANA)
 - web & systems: `mimetype`, `httpstatus`, `useragent`
@@ -276,7 +277,6 @@ fat-fingered `hex(2000000000)` can't try to allocate gigabytes at render.
 | `{ean()}` | derivation | EAN-13 / UPC-A / ISBN-13 / GTIN check digit |
 | `{uuid()}` | generator | UUID v7 (v4 ships as data — see [Data](#data)) |
 | `{ulid()}` | generator | ULID, 26-char Crockford base32 |
-| `{objectid()}` | generator | MongoDB ObjectID, 24 hex chars |
 | `{nanoid(n)}` | generator | URL-safe Nano ID, `n` chars |
 | `{hex(n)}` | generator | `n` lowercase hex digits |
 | `{base64(n)}` | generator | `n` random bytes, base64 |
