@@ -33,7 +33,6 @@ func BenchmarkCreditcard(b *testing.B) { benchPath(b, "data/misc", "creditcard")
 func BenchmarkSSN(b *testing.B)        { benchPath(b, "data/sv_SE", "ssn") }
 func BenchmarkUUIDv7(b *testing.B)     { benchPath(b, "data/misc", "uuid") }
 
-// tmpData writes one category JSON into a fresh dir and returns the dir.
 func tmpData(b *testing.B, name, body string) string {
 	b.Helper()
 	dir := b.TempDir()
@@ -43,19 +42,16 @@ func tmpData(b *testing.B, name, body string) string {
 	return dir
 }
 
-// BenchmarkCalc exercises the per-render expression re-parse.
 func BenchmarkCalc(b *testing.B) {
 	dir := tmpData(b, "inv", `{"format":"{net} x {qty} = {calc(net * qty, 2)}","net":["19.99"],"qty":["3"]}`)
 	benchPath(b, dir, "inv")
 }
 
-// BenchmarkLongLiteral exercises the per-rune literal write path.
 func BenchmarkLongLiteral(b *testing.B) {
 	dir := tmpData(b, "sql", `{"format":"INSERT INTO customers (id, name, city) V#ALUES (#1#2#3, '{word}', '{word}');","word":["alpha","beta","gamma","delta"]}`)
 	benchPath(b, dir, "sql")
 }
 
-// BenchmarkRepeat exercises repeat + separator.
 func BenchmarkRepeat(b *testing.B) {
 	dir := tmpData(b, "many", `{"format":"{word}","repeat":20,"separator":", ","word":["alpha","beta","gamma","delta"]}`)
 	benchPath(b, dir, "many")
