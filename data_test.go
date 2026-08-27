@@ -72,7 +72,11 @@ func TestShippedMiscCategories(t *testing.T) {
 	f := newFakes(t, "data/misc", WithSeed(1))
 	v4 := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 	mac := regexp.MustCompile(`^([0-9a-f]{2}:){5}[0-9a-f]{2}$`)
+	objectid := regexp.MustCompile(`^[0-9a-f]{24}$`)
 	for i := 0; i < 200; i++ {
+		if v := fake(t, f, "objectid"); !objectid.MatchString(v) {
+			t.Fatalf("misc objectid %q is not 24 hex chars", v)
+		}
 		if v := fake(t, f, "uuid"); !v4.MatchString(v) {
 			t.Fatalf("misc uuid %q is not a valid v4", v)
 		}
