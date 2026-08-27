@@ -55,6 +55,9 @@ func loadDir(dir string) (*group, error) {
 	for _, e := range entries {
 		full := filepath.Join(dir, e.Name())
 		if e.IsDir() {
+			if isRef(e.Name()) {
+				return nil, fmt.Errorf("%s: folder %q starts with %q, which is reserved for {..path} bindings", full, e.Name(), refPrefix)
+			}
 			child, err := loadDir(full)
 			if err != nil {
 				return nil, err
