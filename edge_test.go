@@ -63,6 +63,72 @@ func TestNewErrors(t *testing.T) {
 	if _, err := New([]string{writeData(t, map[string]string{"broken": `{ not json`})}); err == nil {
 		t.Error("New(invalid JSON) = nil error")
 	}
+	// An option that cannot take effect, and a category or folder no dot path can
+	// reach, are mistakes New must name rather than accept and ignore.
+	rejected := map[string]struct {
+		files map[string]string
+		want  string
+	}{
+		"separator without repeat": {
+			map[string]string{"a": `{"format":"{x}","x":["1"],"separator":","}`},
+			"has no effect without a repeat above 1",
+		},
+		"separator with an explicit repeat of 1": {
+			map[string]string{"a": `{"format":"{x}","x":["1"],"repeat":1,"separator":","}`},
+			"has no effect without a repeat above 1",
+		},
+		"weight outside a choice": {
+			map[string]string{"a": `{"format":"x","weight":5}`},
+			"weight only skews a choice's items",
+		},
+		"an option name used as a token": {
+			map[string]string{"a": `{"format":"{weight}"}`},
+			`"weight" is an option, never a field`,
+		},
+		"category name with a dot": {
+			map[string]string{"a.b": `["1"]`},
+			`category "a.b" contains a dot`,
+		},
+		"folder name with a dot": {
+			map[string]string{"a.b/cat": `["1"]`},
+			`/a.b: folder "a.b" contains a dot`,
+		},
+	}
+	for name, c := range rejected {
+		_, err := New([]string{writeData(t, c.files)})
+		if err == nil {
+			t.Errorf("%s: New = nil error, want it rejected at load", name)
+			continue
+		}
+		if !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: New = %v, want it to mention %q", name, err, c.want)
+		}
+	}
+	// Data that works today must keep working, and stay reachable.
+	accepted := map[string]struct {
+		files map[string]string
+		path  string
+		want  string
+	}{
+		"option name as a field":     {map[string]string{"a": `{"format":"{name} {Weight}kg","name":["Anvil"],"Weight":["7"]}`}, "a", "Anvil 7kg"},
+		"format spelling as a field": {map[string]string{"a": `{"format":"{Format}","Format":["PDF"]}`}, "a", "PDF"},
+		"dotted field via its token": {map[string]string{"a": `{"format":"[{a.b}]","a.b":["V"]}`}, "a", "[V]"},
+		"hyphenated field":           {map[string]string{"a": `{"format":"{x-y}","x-y":["1"]}`}, "a.x-y", "1"},
+		"category named Format":      {map[string]string{"Format": `["1"]`}, "Format", "1"},
+		"folder named Repeat":        {map[string]string{"Repeat/cat": `["1"]`}, "Repeat.cat", "1"},
+		"field with a paren":         {map[string]string{"a": `{"format":"{x}","x":["1"],"b(c":["2"]}`}, "a.b(c", "2"},
+		"repeat without a separator": {map[string]string{"a": `{"format":"{x}","repeat":3,"x":["1"]}`}, "a", "111"},
+	}
+	for name, c := range accepted {
+		f, err := New([]string{writeData(t, c.files)})
+		if err != nil {
+			t.Errorf("%s: New = %v, want it accepted", name, err)
+			continue
+		}
+		if got, err := f.Fake(c.path); err != nil || got != c.want {
+			t.Errorf("%s: Fake(%q) = %q, %v, want %q", name, c.path, got, err, c.want)
+		}
+	}
 }
 
 // --- deep path navigation ---
