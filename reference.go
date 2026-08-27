@@ -75,7 +75,7 @@ type namedNode struct {
 func contained(n node) []namedNode {
 	switch n := n.(type) {
 	case *group:
-		return named(n.children)
+		return authored(n.children)
 	case *choice:
 		out := make([]namedNode, len(n.items))
 		for i, it := range n.items {
@@ -90,13 +90,22 @@ func contained(n node) []namedNode {
 }
 
 // named skips a bound {..path} key: it is a render edge, not containment, so using
-// it as a path segment would report a node under a path that does not reach it.
+// it as a path segment would report a node under a path that does not reach it. Only
+// a template's fields hold bindings, so group children go through authored.
 func named(m map[string]node) []namedNode {
 	out := make([]namedNode, 0, len(m))
 	for _, name := range sortedNames(m) {
 		if isRef(name) {
 			continue
 		}
+		out = append(out, namedNode{name: name, node: m[name]})
+	}
+	return out
+}
+
+func authored(m map[string]node) []namedNode {
+	out := make([]namedNode, 0, len(m))
+	for _, name := range sortedNames(m) {
 		out = append(out, namedNode{name: name, node: m[name]})
 	}
 	return out
