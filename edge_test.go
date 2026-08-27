@@ -81,6 +81,14 @@ func TestNewErrors(t *testing.T) {
 			map[string]string{"a": `{"format":"x","weight":5}`},
 			"weight only skews a choice's items",
 		},
+		"non-numeric weight outside a choice": {
+			map[string]string{"a": `{"format":"x","weight":"bad"}`},
+			"weight only skews a choice's items",
+		},
+		"weight used as a field": {
+			map[string]string{"a": `{"format":"{name} {weight}kg","name":["Anvil"],"weight":["7"]}`},
+			"can never be a field",
+		},
 		"an option name used as a token": {
 			map[string]string{"a": `{"format":"{weight}"}`},
 			`"weight" is an option, never a field`,
