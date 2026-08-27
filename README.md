@@ -17,7 +17,9 @@ lacked the locale coverage and format control we needed.
   id), never for what character classes and choices already do.
 - **Composable** — templates nest without limit: weighted choices, character
   classes and sub-templates combine to model any format.
-- **Reproducible** — seed a faker and it emits the same sequence every time.
+- **Reproducible** — seed a faker and it emits the same sequence every time, for a
+  given version of the data: changing how a value is composed shifts the stream for
+  that value and for everything drawn after it in the same faker.
   Every built-in draws only from that seed — no wall-clock, no `crypto/rand` —
   so determinism holds end to end.
 - **Zero dependencies** — standard library only.
@@ -337,11 +339,10 @@ rejected at `New`.
 may be a `{..path}` reference too (`{name|..en_US.person}`).
 
 Inside a `format`, `0 1 A a` are **always** character classes — so a fixed digit
-or letter must be escaped (`#1`, `#A`) or it becomes random. Only those four
-characters are classes: digits `2`–`9` and every other letter are literal. A
-format of `100 Main St` renders e.g. `506 Mdin St` — the `1`, `0`, `0` and `a`
-were random, the `M`, `in` and `St` were not. A half-fixed string is the trap:
-`555-0100` keeps `555-` and randomises the last four digits. For a value with no
+or letter must be escaped (`#1`, `#A`) or it becomes random. A format of
+`100 Main St` renders e.g. `506 Mdin St` — the `1`, `0`, `0` and `a` were random,
+the `M`, `in` and `St` were not. A half-fixed string is the trap: `555-0000`
+keeps `555-` and randomises the last four digits. For a value with no
 tokens at all, use a bare string node (`"100 Main St"`), emitted verbatim.
 
 **Putting it together** (`person.json`):
