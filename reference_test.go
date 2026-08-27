@@ -105,7 +105,8 @@ func TestReferenceErrors(t *testing.T) {
 		// ".." is reserved for bound references, so an authored key using it would
 		// name a node nothing can reach and nothing would validate.
 		"field key using the reference prefix":     {"cat": `{"format":"hi","..x":{"format":"{..nope}"}}`},
-		"category name using the reference prefix": {"..bad": `{"format":"{..nope}"}`},
+		"category name using the reference prefix": {"sv_SE/..bad": `{"format":"{..nope}"}`},
+		"folder name using the reference prefix":   {"sv_SE/..y/cat": `{"format":"{..nope}"}`},
 	}
 	for name, files := range cases {
 		if _, err := New([]string{writeData(t, files)}); err == nil {
@@ -129,26 +130,36 @@ func TestReferenceFromUnrenderedFieldTerminates(t *testing.T) {
 }
 
 // TestNewErrorIsDeterministic pins one message per broken data set: map iteration
-// order must not decide which of several problems the user is told about.
+// order must not decide which of several problems the user is told about, whether
+// they sit in separate categories or in one template's fields.
 func TestNewErrorIsDeterministic(t *testing.T) {
-	dir := writeData(t, map[string]string{
-		"a": `{"format":"{..nope.one}"}`,
-		"b": `{"format":"{..nope.two}"}`,
-		"c": `{"format":"{..nope.three}"}`,
-	})
-	var first string
-	for i := 0; i < 50; i++ {
-		_, err := New([]string{dir})
-		if err == nil {
-			t.Fatal("New = nil error, want a reference error")
+	cases := map[string]map[string]string{
+		"three bad references": {
+			"a": `{"format":"{..nope.one}"}`,
+			"b": `{"format":"{..nope.two}"}`,
+			"c": `{"format":"{..nope.three}"}`,
+		},
+		"two bad fields in one template": {
+			"cat": `{"format":"hi","aaa":{"no":1},"zzz":{"no":2}}`,
+		},
+	}
+	for name, files := range cases {
+		dir := writeData(t, files)
+		var first string
+		for i := 0; i < 50; i++ {
+			_, err := New([]string{dir})
+			if err == nil {
+				t.Fatalf("%s: New = nil error, want a load error", name)
+			}
+			if i == 0 {
+				first = err.Error()
+				continue
+			}
+			if err.Error() != first {
+				t.Fatalf("%s: New error varies between runs:\n  %s\n  %s", name, first, err.Error())
+			}
 		}
-		if i == 0 {
-			first = err.Error()
-			continue
-		}
-		if err.Error() != first {
-			t.Fatalf("New error varies between runs:\n  %s\n  %s", first, err.Error())
-		}
+		t.Logf("%s -> %s", name, first)
 	}
 }
 
