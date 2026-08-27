@@ -2,6 +2,7 @@ package fakes
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -17,52 +18,93 @@ func isRef(name string) bool { return strings.HasPrefix(name, refPrefix) }
 // ordinary resolver renders it like a sibling. It runs once, after all data is
 // merged, so a reference sees the final (override-resolved) tree. A path that is
 // unknown, names a folder, or steps through a multi-variant choice fails here,
-// keeping a bad reference a New-time error, never a random render-time one. The
-// seen set skips shared nodes (and keeps this walk finite if data is cyclic);
-// checkNoCycles, run next, is what rejects an actual reference cycle.
+// keeping a bad reference a New-time error, never a random render-time one.
 func linkRefs(root map[string]node) error {
+	return walkNodes(root, func(path string, n node) error {
+		t, ok := n.(*template)
+		if !ok {
+			return nil
+		}
+		for _, name := range refTokens(t.format) {
+			target, err := lookup(root, strings.Split(name[len(refPrefix):], "."))
+			if err != nil {
+				return fmt.Errorf("%s: reference {%s}: %w", path, name, err)
+			}
+			t.fields[name] = target
+		}
+		return nil
+	})
+}
+
+// walkNodes calls fn once per contained node, passing the dot path that reaches it,
+// visiting keys in sorted order so which of several broken nodes gets reported does
+// not depend on map iteration. fn runs before a node's children, so a binding it
+// adds to a template's fields is walked too.
+func walkNodes(root map[string]node, fn func(path string, n node) error) error {
 	seen := map[node]bool{}
-	var visit func(node) error
-	visit = func(n node) error {
+	var visit func(string, node) error
+	visit = func(path string, n node) error {
 		if n == nil || seen[n] {
 			return nil
 		}
 		seen[n] = true
-		switch n := n.(type) {
-		case *group:
-			for _, c := range n.children {
-				if err := visit(c); err != nil {
-					return err
-				}
-			}
-		case *choice:
-			for _, it := range n.items {
-				if err := visit(it); err != nil {
-					return err
-				}
-			}
-		case *template:
-			for _, name := range refTokens(n.format) {
-				target, err := lookup(root, strings.Split(name[len(refPrefix):], "."))
-				if err != nil {
-					return fmt.Errorf("reference {%s}: %w", name, err)
-				}
-				n.fields[name] = target
-			}
-			for _, c := range n.fields {
-				if err := visit(c); err != nil {
-					return err
-				}
+		if err := fn(path, n); err != nil {
+			return err
+		}
+		for _, c := range contained(n) {
+			if err := visit(join(path, c.name), c.node); err != nil {
+				return err
 			}
 		}
 		return nil
 	}
-	for _, c := range root {
-		if err := visit(c); err != nil {
+	for _, name := range sortedNames(root) {
+		if err := visit(name, root[name]); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// namedNode is a contained child and the segment reaching it; a choice's items carry
+// no segment, matching how a dot path steps over a choice.
+type namedNode struct {
+	name string
+	node node
+}
+
+func contained(n node) []namedNode {
+	switch n := n.(type) {
+	case *group:
+		return named(n.children)
+	case *choice:
+		out := make([]namedNode, len(n.items))
+		for i, it := range n.items {
+			out[i] = namedNode{node: it}
+		}
+		return out
+	case *template:
+		return named(n.fields)
+	default:
+		return nil
+	}
+}
+
+func named(m map[string]node) []namedNode {
+	out := make([]namedNode, 0, len(m))
+	for _, name := range sortedNames(m) {
+		out = append(out, namedNode{name: name, node: m[name]})
+	}
+	return out
+}
+
+func sortedNames(m map[string]node) []string {
+	names := make([]string, 0, len(m))
+	for name := range m {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // lookup finds the single node a reference path names, walking groups and
@@ -148,6 +190,8 @@ func renderEdges(n node) []renderEdge {
 // New rather than stack-overflow at render. It is a depth-first walk of the render
 // graph (renderEdges); grey marks nodes on the current path so a back-edge to one
 // is the cycle, while black lets a shared node (a DAG, not a cycle) be skipped.
+// Every node is a root: a field its parent's format never renders is still reachable
+// by dot path, so a cycle in one would otherwise reach render and be fatal there.
 func checkNoCycles(root map[string]node) error {
 	const (
 		grey  = 1
@@ -171,10 +215,5 @@ func checkNoCycles(root map[string]node) error {
 		color[n] = black
 		return nil
 	}
-	for name, c := range root {
-		if err := visit(c, name); err != nil {
-			return err
-		}
-	}
-	return nil
+	return walkNodes(root, func(path string, n node) error { return visit(n, path) })
 }
