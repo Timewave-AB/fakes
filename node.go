@@ -91,7 +91,11 @@ func compileChoice(items []any) (node, error) {
 		}
 		c.cum = cum
 	}
-	c.shared = sharedPaths(c.items)
+	if len(c.items) > 1 {
+		// Safe to precompute: a choice's items come from one file, so no group can
+		// appear inside one, and neither mergeChildren nor linkRefs can reach in.
+		c.shared = sharedPaths(c.items)
+	}
 	return c, nil
 }
 
