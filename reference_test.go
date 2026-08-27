@@ -97,6 +97,15 @@ func TestReferenceErrors(t *testing.T) {
 		"cycle in an unrendered field of a choice arm": {
 			"cat": `[{"format":"hi","x":{"format":"{..cat.x}"}}]`,
 		},
+		// The shipped layout puts categories in folders, so a cycle one level down
+		// is the common case, not an edge case.
+		"cycle in a subfolder":            {"sv_SE/a": `{"format":"x{..sv_SE.a}"}`},
+		"mutual cycle within a subfolder": {"sv_SE/a": `{"format":"{..sv_SE.b}"}`, "sv_SE/b": `{"format":"{..sv_SE.a}"}`},
+		"mutual cycle across two folders": {"en_US/a": `{"format":"{..sv_SE.b}"}`, "sv_SE/b": `{"format":"{..en_US.a}"}`},
+		// ".." is reserved for bound references, so an authored key using it would
+		// name a node nothing can reach and nothing would validate.
+		"field key using the reference prefix":     {"cat": `{"format":"hi","..x":{"format":"{..nope}"}}`},
+		"category name using the reference prefix": {"..bad": `{"format":"{..nope}"}`},
 	}
 	for name, files := range cases {
 		if _, err := New([]string{writeData(t, files)}); err == nil {
