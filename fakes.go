@@ -21,8 +21,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/rand/v2"
-	"slices"
 	"sort"
+	"strings"
 )
 
 // Fakes generates fake data from a loaded namespace tree. Create one with [New].
@@ -90,7 +90,15 @@ func (f *Fakes) List() []string {
 		}
 	}
 	sort.Strings(out)
-	return slices.Compact(out)
+	return out
+}
+
+// addressable reports whether a name can be one segment of a dot path. A dot would
+// split it into two segments and an empty name into none, so a path through such a
+// name cannot be spelled — List must not offer one, and it must not count towards
+// what a choice's variants share.
+func addressable(name string) bool {
+	return name != "" && !strings.Contains(name, ".")
 }
 
 // paths lists the dot paths addressable from n, relative to it, where "" is n
@@ -100,6 +108,9 @@ func paths(n node) []string {
 	case *group:
 		var out []string
 		for _, name := range sortedNames(n.children) {
+			if !addressable(name) {
+				continue
+			}
 			for _, p := range paths(n.children[name]) {
 				out = append(out, join(name, p))
 			}
@@ -108,7 +119,7 @@ func paths(n node) []string {
 	case *template:
 		out := []string{""}
 		for _, name := range sortedNames(n.fields) {
-			if isRef(name) { // a bound {..path} reference, not an authored field
+			if isRef(name) || !addressable(name) { // a binding, or unreachable by path
 				continue
 			}
 			for _, p := range paths(n.fields[name]) {
@@ -132,27 +143,33 @@ func paths(n node) []string {
 }
 
 // sharedPaths is the sub-paths every item carries — the only ones a path may step
-// through a multi-variant choice to reach. An item is counted once per path, since
-// one item offering a path twice does not make it shared.
+// through a multi-variant choice to reach. It intersects, bailing as soon as the set
+// is empty, which is immediate for a choice of plain strings.
 func sharedPaths(items []node) map[string]bool {
-	count := map[string]int{}
-	for _, it := range items {
-		seen := map[string]bool{}
-		for _, p := range paths(it) {
-			if p == "" || seen[p] {
-				continue
-			}
-			seen[p] = true
-			count[p]++
+	shared := subPaths(items[0])
+	for _, it := range items[1:] {
+		if len(shared) == 0 {
+			return nil
 		}
-	}
-	shared := map[string]bool{}
-	for p, n := range count {
-		if n == len(items) {
-			shared[p] = true
+		next := subPaths(it)
+		for p := range shared {
+			if !next[p] {
+				delete(shared, p)
+			}
 		}
 	}
 	return shared
+}
+
+// subPaths is paths(n) as a set, without the empty path that means n itself.
+func subPaths(n node) map[string]bool {
+	out := map[string]bool{}
+	for _, p := range paths(n) {
+		if p != "" {
+			out[p] = true
+		}
+	}
+	return out
 }
 
 func join(prefix, name string) string {
