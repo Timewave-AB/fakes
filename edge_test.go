@@ -97,12 +97,17 @@ func TestPathThroughChoice(t *testing.T) {
 	dir := writeData(t, map[string]string{
 		"every":  `[{"format":"{f}","f":["1"]},{"format":"{f}","f":["2"]}]`,
 		"notall": `[{"format":"{f}","f":["1"]},["plain"]]`,
+		"some":   `[{"format":"{f}","f":["1"]},{"format":"{f}","f":["2"],"extra":["x"]}]`,
 	})
 	f := newFakes(t, dir, WithSeed(1))
 	for i := 0; i < 200; i++ {
 		if got := fake(t, f, "every.f"); got != "1" && got != "2" {
 			t.Fatalf("every.f = %q, want 1 or 2", got)
 		}
+	}
+	// A path only some variants carry is reported against what all of them carry.
+	if _, err := f.Fake("some.extra"); err == nil || !strings.Contains(err.Error(), "all carry [f]") {
+		t.Errorf("Fake(some.extra) = %v, want it to name what every variant carries", err)
 	}
 	var first string
 	for i := 0; i < 200; i++ {

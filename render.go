@@ -2,7 +2,6 @@ package fakes
 
 import (
 	"fmt"
-	"slices"
 	"sort"
 	"strings"
 )
@@ -52,9 +51,10 @@ func descend(s *session, n node, segments []string) (node, error) {
 		}
 		return descend(s, child, segments[1:])
 	case *choice:
-		want := strings.Join(segments, ".")
-		if !n.shared[want] {
-			return nil, unreachableInChoice(n, want)
+		if len(n.items) > 1 {
+			if want := strings.Join(segments, "."); !n.shared[want] {
+				return nil, unreachableInChoice(n, want)
+			}
 		}
 		return descend(s, pick(s, n), segments)
 	case literal:
@@ -64,17 +64,19 @@ func descend(s *session, n node, segments []string) (node, error) {
 	}
 }
 
-// unreachableInChoice names the first variant that cannot address want. It walks
-// the variants, which only a failing path does.
+// unreachableInChoice reports that a path cannot step through this choice, listing
+// what every variant does carry. It reads the precomputed set, so a failing path
+// costs no more than a rendering one.
 func unreachableInChoice(c *choice, want string) error {
-	if len(c.items) > 1 {
-		for i, item := range c.items {
-			if !slices.Contains(paths(item), want) {
-				return fmt.Errorf("variant %d of a %d-way choice cannot reach %q", i+1, len(c.items), want)
-			}
-		}
+	if len(c.shared) == 0 {
+		return fmt.Errorf("no variant of this %d-way choice carries %q", len(c.items), want)
 	}
-	return fmt.Errorf("cannot reach %q", want)
+	offered := make([]string, 0, len(c.shared))
+	for p := range c.shared {
+		offered = append(offered, p)
+	}
+	sort.Strings(offered)
+	return fmt.Errorf("not every variant of this %d-way choice carries %q; all carry %v", len(c.items), want, offered)
 }
 
 // render evaluates a compiled node to a string. compile validates every node up
