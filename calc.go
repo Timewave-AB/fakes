@@ -11,12 +11,12 @@ import (
 // calc is the {calc(expr[, dp])} token: an arithmetic expression over number
 // literals and sibling-field names (rendered, then parsed as numbers), with
 // + - * /, unary minus and parentheses. It is a registry builtin like any other
-// {name(args)} function — the one whose check and call read the sibling fields (to
+// {name(args)} function — the one whose check and prep read the sibling fields (to
 // render its operands). The value prints in minimal decimal form, or rounded to dp
 // when given. A field that doesn't render to a number becomes NaN, which
-// propagates and prints as "NaN" — visible, never a render error. The expression
-// is re-parsed each render, mirroring how expand re-scans the format; checkCalc
-// proves it parses (and names real fields) at New, so render never fails.
+// propagates and prints as "NaN" — visible, never a render error. The expression is
+// parsed once at New into an AST every render shares and none mutates, so render
+// cannot fail and must not carry per-render state.
 
 // calcNode is a parsed expression node.
 type calcNode interface {

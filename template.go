@@ -20,7 +20,7 @@ type ftoken struct {
 }
 
 // eachToken scans a format string once and calls fn for each unit, the single
-// source of truth for how '#' escapes and {…} braces are read — expand,
+// source of truth for how '#' escapes and {…} braces are read — compileOps,
 // checkTokens, fieldTokens and refTokens all drive off it so the grammar can't
 // drift between the validator and the renderer. '#' escapes the next char to a
 // literal ("#0" -> '0', "##" -> '#'); a '{' must reach a '}' (else an error); an
@@ -66,7 +66,9 @@ func eachToken(format string, fn func(ftoken) error) error {
 // seq is the one exception: it advances per-session counter state, which is itself
 // deterministic (1, 2, 3 …). arity is the exact arg count, or -1 for variadic
 // (then check does all the validation). The optional check validates args at
-// compile time (their values, beyond the count). The registry lives in builtins.go.
+// compile time (their values, beyond the count). A builtin supplies exactly one of
+// prep (args parsed once, at compile) or call (args parsed per render). The registry
+// lives in builtins.go.
 type builtin struct {
 	arity int
 	// prep parses validated args once, at compile time, into the closure expand calls.
@@ -162,12 +164,12 @@ func fieldTokens(format string) []string {
 	return names
 }
 
-// op is one compiled unit of a format string: a literal run, a class char, a field
-// alternation, or a builtin already bound to its args. compile builds these so
-// render never re-scans the format.
 // callFn is a builtin bound to one call site: its args already parsed.
 type callFn func(s *session, emitted string, fields map[string]node) string
 
+// op is one compiled unit of a format string: a literal run, a class char, a field
+// alternation, or a builtin already bound to its args. compile builds these so
+// render never re-scans the format.
 type op struct {
 	kind  byte     // 'l' literal run, 'c' class char, 'f' field alternation, 'b' builtin
 	lit   string   // kind 'l'
@@ -176,14 +178,16 @@ type op struct {
 	call  callFn
 }
 
-// compileOps turns a validated format string into ops, and returns the smallest
-// output it can produce (literals plus one byte per class char) to size the buffer.
-func compileOps(format string, fields map[string]node) ([]op, int) {
+// compileOps turns a format string into ops, and returns the smallest output it can
+// produce (literals plus one byte per class char) to size the render buffer. Call
+// checkTokens first: it is what proves the scan and every token are valid.
+func compileOps(format string) ([]op, int) {
 	var ops []op
 	var lit strings.Builder
 	grow := 0
 	flush := func() {
 		if lit.Len() > 0 {
+			grow += lit.Len()
 			ops = append(ops, op{kind: 'l', lit: lit.String()})
 			lit.Reset()
 		}
@@ -207,11 +211,6 @@ func compileOps(format string, fields map[string]node) ([]op, int) {
 		return nil
 	})
 	flush()
-	for _, o := range ops {
-		if o.kind == 'l' {
-			grow += len(o.lit)
-		}
-	}
 	return ops, grow
 }
 

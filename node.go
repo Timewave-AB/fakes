@@ -138,7 +138,7 @@ func compileTemplate(m map[string]any) (node, error) {
 	if err := checkTokens(format, t.fields); err != nil {
 		return nil, err
 	}
-	t.ops, t.grow = compileOps(format, t.fields)
+	t.ops, t.grow = compileOps(format)
 	return t, nil
 }
 
