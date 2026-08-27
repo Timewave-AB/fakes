@@ -114,8 +114,11 @@ func (f *Fakes) List() []string {
 }
 
 func join(prefix, name string) string {
-	if prefix == "" {
+	switch {
+	case prefix == "":
 		return name
+	case name == "":
+		return prefix
 	}
 	return prefix + "." + name
 }
