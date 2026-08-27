@@ -127,6 +127,24 @@ func TestShippedMiscReferenceData(t *testing.T) {
 	}
 }
 
+// TestSwedishNamesHaveNoTripleLetter pins an orthographic rule the shape regexes
+// miss: Swedish never triples a consonant, so no prefix/suffix pair in the name
+// data may compose one (Jöns+sson, Wall+lund, Norr+roth).
+func TestSwedishNamesHaveNoTripleLetter(t *testing.T) {
+	f := newFakes(t, "data/sv_SE", WithSeed(11))
+	for _, path := range []string{"person", "person.last"} {
+		for i := 0; i < 20000; i++ {
+			name := fake(t, f, path)
+			r := []rune(name)
+			for j := 0; j+2 < len(r); j++ {
+				if r[j] == r[j+1] && r[j] == r[j+2] {
+					t.Fatalf("%s = %q, which triples %q", path, name, string(r[j]))
+				}
+			}
+		}
+	}
+}
+
 // TestSwedishPersonnummer checks the two rules the shape regex can't: the date
 // is a real calendar date (so month-length variants never emit e.g. Apr 31 or
 // Feb 30) and the trailing digit is a valid Luhn checksum over the other nine.
