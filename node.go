@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 )
 
 // node is a compiled template element: literal, choice, or template. Compiling
@@ -48,7 +49,20 @@ type template struct {
 func (*template) isNode() {}
 
 // compile converts parsed JSON into a node tree, validating structure up front.
+// Only a choice's items carry a weight, so a numeric one here would be inert.
 func compile(v any) (node, error) {
+	if m, ok := v.(map[string]any); ok {
+		if w, weighted := m["weight"]; weighted {
+			if _, isNumber := w.(float64); isNumber {
+				return nil, fmt.Errorf("weight only skews a choice's items, so it has no effect here")
+			}
+		}
+	}
+	return compileItem(v)
+}
+
+// compileItem compiles one node, allowing the weight a choice item may carry.
+func compileItem(v any) (node, error) {
 	switch v := v.(type) {
 	case string:
 		return literal(v), nil
@@ -79,7 +93,7 @@ func compileChoice(items []any) (node, error) {
 		}
 		total += w
 		cum[i] = total
-		n, err := compile(raw)
+		n, err := compileItem(raw)
 		if err != nil {
 			return nil, err
 		}
@@ -113,6 +127,9 @@ func compileTemplate(m map[string]any) (node, error) {
 		if sep, ok = sv.(string); !ok {
 			return nil, fmt.Errorf("separator must be a string, got %T", sv)
 		}
+		if repeat == 1 {
+			return nil, fmt.Errorf("separator joins repeated renders, so it has no effect without a repeat above 1")
+		}
 	}
 	t := &template{format: format, fields: make(map[string]node, len(m)), repeat: repeat, separator: sep}
 	keys := make([]string, 0, len(m))
@@ -121,7 +138,7 @@ func compileTemplate(m map[string]any) (node, error) {
 	}
 	sort.Strings(keys) // so which of several bad fields is reported does not vary
 	for _, k := range keys {
-		if k == "format" || k == "weight" || k == "repeat" || k == "separator" {
+		if isOption(k) {
 			continue
 		}
 		if isRef(k) {
@@ -178,4 +195,24 @@ func weightOf(raw any) (float64, error) {
 		return 0, fmt.Errorf("weight must be finite and non-negative, got %v", w)
 	}
 	return w, nil
+}
+
+// checkName rejects a category or folder name no dot path can reach. A dot separates
+// path segments, so such a name is unaddressable by every route — unlike a field,
+// which its parent's format still reaches by token.
+func checkName(name string) error {
+	if strings.Contains(name, ".") {
+		return fmt.Errorf("%q contains a dot, which a dot path cannot reach", name)
+	}
+	return nil
+}
+
+// isOption reports whether a template key configures the node instead of naming a
+// field. These four names can never be fields.
+func isOption(name string) bool {
+	switch name {
+	case "format", "repeat", "separator", "weight":
+		return true
+	}
+	return false
 }
