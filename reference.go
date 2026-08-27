@@ -38,8 +38,7 @@ func linkRefs(root map[string]node) error {
 
 // walkNodes calls fn once per contained node, passing the dot path that reaches it,
 // visiting keys in sorted order so which of several broken nodes gets reported does
-// not depend on map iteration. fn runs before a node's children, so a binding it
-// adds to a template's fields is walked too.
+// not depend on map iteration.
 func walkNodes(root map[string]node, fn func(path string, n node) error) error {
 	seen := map[node]bool{}
 	var visit func(string, node) error
