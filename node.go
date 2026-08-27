@@ -43,6 +43,8 @@ type template struct {
 	fields    map[string]node
 	repeat    int
 	separator string
+	ops       []op // format compiled once (see compileOps); what expand walks
+	grow      int  // minimum output size, to size the render buffer
 }
 
 func (*template) isNode() {}
@@ -136,6 +138,7 @@ func compileTemplate(m map[string]any) (node, error) {
 	if err := checkTokens(format, t.fields); err != nil {
 		return nil, err
 	}
+	t.ops, t.grow = compileOps(format, t.fields)
 	return t, nil
 }
 

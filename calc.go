@@ -82,17 +82,17 @@ func checkCalc(fields map[string]node, args []string) error {
 	return nil
 }
 
-// calcCall renders a calc token. checkCalc proved the expression parses and the
-// decimals arg is valid, so neither step here can fail. dp -1 prints the minimal
-// form; a given dp rounds to that many places. The emitted-so-far arg is unused —
-// calc reads sibling fields, not the preceding output.
-func calcCall(s *session, _ string, fields map[string]node, args []string) string {
+// calcPrep parses the expression and decimals once, at compile time. checkCalc
+// proved both valid, so neither step here can fail; dp -1 prints the minimal form.
+func calcPrep(args []string) callFn {
 	expr, _ := parseCalc(args[0])
 	dp := -1
 	if len(args) == 2 {
 		dp = atoi(args[1])
 	}
-	return strconv.FormatFloat(expr.eval(s, fields), 'f', dp, 64)
+	return func(s *session, _ string, fields map[string]node) string {
+		return strconv.FormatFloat(expr.eval(s, fields), 'f', dp, 64)
+	}
 }
 
 // calcOperands lists the sibling-field names every {calc(...)} token in a format

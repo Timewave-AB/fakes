@@ -391,6 +391,7 @@ Source is bind-mounted; build caches persist in the `gocache` volume.
 docker compose run --rm test    # run tests
 docker compose run --rm ci      # vet + format check + tests
 docker compose run --rm cover   # tests with coverage
+docker compose run --rm bench   # benchmarks
 docker compose run --rm build   # compile the library
 docker compose run --rm vet     # go vet
 docker compose run --rm dev     # interactive shell

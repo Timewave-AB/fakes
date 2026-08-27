@@ -32,28 +32,47 @@ var builtins = map[string]builtin{
 	"uuid":     {arity: 0, call: func(s *session, _ string, _ map[string]node, _ []string) string { return uuidV7(s) }},
 	"ulid":     {arity: 0, call: func(s *session, _ string, _ map[string]node, _ []string) string { return ulid(s) }},
 	"objectid": {arity: 0, call: func(s *session, _ string, _ map[string]node, _ []string) string { return randHex(s, 24) }},
-	"nanoid":   {arity: 1, check: posIntArg, call: func(s *session, _ string, _ map[string]node, a []string) string { return nanoid(s, atoi(a[0])) }},
-	"hex":      {arity: 1, check: posIntArg, call: func(s *session, _ string, _ map[string]node, a []string) string { return randHex(s, atoi(a[0])) }},
-	"base64": {arity: 1, check: posIntArg, call: func(s *session, _ string, _ map[string]node, a []string) string {
-		return base64.StdEncoding.EncodeToString(randBytes(s, atoi(a[0])))
+	"nanoid": {arity: 1, check: posIntArg, prep: func(a []string) callFn {
+		n := atoi(a[0])
+		return func(s *session, _ string, _ map[string]node) string { return nanoid(s, n) }
 	}},
-	"int": {arity: 2, check: intRangeArgs, call: func(s *session, _ string, _ map[string]node, a []string) string {
-		return strconv.Itoa(atoi(a[0]) + s.IntN(atoi(a[1])-atoi(a[0])+1))
+	"hex": {arity: 1, check: posIntArg, prep: func(a []string) callFn {
+		n := atoi(a[0])
+		return func(s *session, _ string, _ map[string]node) string { return randHex(s, n) }
 	}},
-	"float": {arity: 3, check: floatArgs, call: floatCall},
-	"iban":  {arity: 1, check: ibanArg, call: func(s *session, _ string, _ map[string]node, a []string) string { return iban(s, a[0]) }},
+	"base64": {arity: 1, check: posIntArg, prep: func(a []string) callFn {
+		n := atoi(a[0])
+		return func(s *session, _ string, _ map[string]node) string {
+			return base64.StdEncoding.EncodeToString(randBytes(s, n))
+		}
+	}},
+	"int": {arity: 2, check: intRangeArgs, prep: func(a []string) callFn {
+		lo, span := atoi(a[0]), atoi(a[1])-atoi(a[0])+1
+		return func(s *session, _ string, _ map[string]node) string { return strconv.Itoa(lo + s.IntN(span)) }
+	}},
+	"float": {arity: 3, check: floatArgs, prep: func(a []string) callFn {
+		lo, _ := strconv.ParseFloat(a[0], 64)
+		hi, _ := strconv.ParseFloat(a[1], 64)
+		dp := atoi(a[2])
+		return func(s *session, _ string, _ map[string]node) string {
+			return strconv.FormatFloat(lo+s.Float64()*(hi-lo), 'f', dp, 64)
+		}
+	}},
+	"iban": {arity: 1, check: ibanArg, call: func(s *session, _ string, _ map[string]node, a []string) string { return iban(s, a[0]) }},
 	// calc is the one builtin that reads the sibling fields (to render its operands);
 	// every other ignores them. 1 or 2 args: the expression and an optional decimals.
-	"calc": {arity: -1, check: checkCalc, call: calcCall},
+	"calc": {arity: -1, check: checkCalc, prep: calcPrep},
 	// seq is the one stateful builtin: a per-session counter from 1, advancing on
 	// each call. An optional name selects an independent counter; no name uses the
 	// default one. Deterministic by construction, so a seeded faker stays stable.
-	"seq": {arity: -1, check: seqArg, call: func(s *session, _ string, _ map[string]node, a []string) string {
+	"seq": {arity: -1, check: seqArg, prep: func(a []string) callFn {
 		key := ""
 		if len(a) == 1 {
 			key = a[0]
 		}
-		return strconv.FormatUint(s.next(key), 10)
+		return func(s *session, _ string, _ map[string]node) string {
+			return strconv.FormatUint(s.next(key), 10)
+		}
 	}},
 }
 
@@ -121,12 +140,6 @@ func floatArgs(_ map[string]node, a []string) error {
 		return fmt.Errorf("float(min,max,dp): decimals %d out of range 0..%d", dp, maxDecimals)
 	}
 	return nil
-}
-
-func floatCall(s *session, _ string, _ map[string]node, a []string) string {
-	lo, _ := strconv.ParseFloat(a[0], 64)
-	hi, _ := strconv.ParseFloat(a[1], 64)
-	return strconv.FormatFloat(lo+s.Float64()*(hi-lo), 'f', atoi(a[2]), 64)
 }
 
 func seqArg(_ map[string]node, a []string) error {
