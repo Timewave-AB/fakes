@@ -51,13 +51,11 @@ type template struct {
 func (*template) isNode() {}
 
 // compile converts parsed JSON into a node tree, validating structure up front.
-// Only a choice's items carry a weight, so a numeric one here would be inert.
+// Only a choice's items carry a weight, so one here would be inert whatever its type.
 func compile(v any) (node, error) {
 	if m, ok := v.(map[string]any); ok {
-		if w, weighted := m["weight"]; weighted {
-			if _, isNumber := w.(float64); isNumber {
-				return nil, fmt.Errorf("weight only skews a choice's items, so it has no effect here")
-			}
+		if _, weighted := m["weight"]; weighted {
+			return nil, fmt.Errorf("weight only skews a choice's items, so it has no effect here; it is an option and can never be a field")
 		}
 	}
 	return compileItem(v)
