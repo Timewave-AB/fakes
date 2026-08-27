@@ -20,9 +20,9 @@ const (
 // the digits emitted so far in the current expansion (luhn, mod11, ean — place
 // them after their payload); generators read only the rng (uuid, ulid, ...). All
 // must stay pure over (rng, emitted, args) so a seeded faker is reproducible — a
-// time-based id (uuid v7, ulid) draws its timestamp from the rng, not
-// the wall clock. Add a builtin only for what data can't express: a random v4
-// UUID already ships as data (data/misc/uuid.json), so the builtin is v7.
+// time-based id (uuid v7, ulid) draws its timestamp from the rng, not the wall
+// clock. Add a builtin only for what data can't express: a random v4 UUID and a
+// 24-hex ObjectID both ship as data, so the uuid builtin is v7.
 var builtins = map[string]builtin{
 	"luhn": {arity: 0, call: func(_ *session, e string, _ map[string]node, _ []string) string {
 		return string(rune('0' + luhnCheck(e)))
