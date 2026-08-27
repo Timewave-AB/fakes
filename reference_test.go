@@ -142,3 +142,35 @@ func TestNewErrorIsDeterministic(t *testing.T) {
 		}
 	}
 }
+
+// TestNewErrorPathIsCanonical pins the node path a load error names: a choice arm
+// adds no segment, and a bound {..path} reference is not a containment segment at
+// all, so a bad reference is reported against the node that holds it.
+func TestNewErrorPathIsCanonical(t *testing.T) {
+	cases := []struct {
+		name  string
+		files map[string]string
+		want  string
+	}{
+		{
+			"cycle inside a choice arm",
+			map[string]string{"cat": `[{"format":"hi","x":{"format":"{..cat.x}"}}]`},
+			"fakes: reference cycle: cat.x -> ..cat.x",
+		},
+		{
+			"bad reference reached through another reference",
+			map[string]string{"a": `{"format":"{..b}"}`, "b": `{"format":"{..nope}"}`},
+			`fakes: b: reference {..nope}: no entry "nope"`,
+		},
+	}
+	for _, c := range cases {
+		_, err := New([]string{writeData(t, c.files)})
+		if err == nil {
+			t.Errorf("%s: New = nil error", c.name)
+			continue
+		}
+		if err.Error() != c.want {
+			t.Errorf("%s:\n  got  %s\n  want %s", c.name, err, c.want)
+		}
+	}
+}
