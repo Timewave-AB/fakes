@@ -32,6 +32,10 @@ services:
     <<: *go
     command: go test -cover ./...
 
+  bench:
+    <<: *go
+    command: go test -run XXX -bench . -benchmem ./...
+
   vet:
     <<: *go
     command: go vet ./...

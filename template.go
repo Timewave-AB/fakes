@@ -69,6 +69,8 @@ func eachToken(format string, fn func(ftoken) error) error {
 // compile time (their values, beyond the count). The registry lives in builtins.go.
 type builtin struct {
 	arity int
+	// prep parses validated args once, at compile time, into the closure expand calls.
+	prep  func(args []string) callFn
 	check func(fields map[string]node, args []string) error
 	call  func(s *session, emitted string, fields map[string]node, args []string) string
 }
@@ -158,4 +160,68 @@ func fieldTokens(format string) []string {
 		return nil
 	})
 	return names
+}
+
+// op is one compiled unit of a format string: a literal run, a class char, a field
+// alternation, or a builtin already bound to its args. compile builds these so
+// render never re-scans the format.
+// callFn is a builtin bound to one call site: its args already parsed.
+type callFn func(s *session, emitted string, fields map[string]node) string
+
+type op struct {
+	kind  byte     // 'l' literal run, 'c' class char, 'f' field alternation, 'b' builtin
+	lit   string   // kind 'l'
+	r     rune     // kind 'c'
+	names []string // kind 'f': the '|' arms, split once
+	call  callFn
+}
+
+// compileOps turns a validated format string into ops, and returns the smallest
+// output it can produce (literals plus one byte per class char) to size the buffer.
+func compileOps(format string, fields map[string]node) ([]op, int) {
+	var ops []op
+	var lit strings.Builder
+	grow := 0
+	flush := func() {
+		if lit.Len() > 0 {
+			ops = append(ops, op{kind: 'l', lit: lit.String()})
+			lit.Reset()
+		}
+	}
+	_ = eachToken(format, func(t ftoken) error {
+		switch t.kind {
+		case 'l':
+			lit.WriteRune(t.r)
+		case 'c':
+			flush()
+			grow++
+			ops = append(ops, op{kind: 'c', r: t.r})
+		case 'b':
+			flush()
+			if name, args, ok := funcCall(t.body); ok {
+				ops = append(ops, op{kind: 'b', call: builtins[name].bind(args)})
+			} else {
+				ops = append(ops, op{kind: 'f', names: strings.Split(t.body, "|")})
+			}
+		}
+		return nil
+	})
+	flush()
+	for _, o := range ops {
+		if o.kind == 'l' {
+			grow += len(o.lit)
+		}
+	}
+	return ops, grow
+}
+
+// bind returns the closure for one call site, parsing args once via prep if present.
+func (b builtin) bind(args []string) callFn {
+	if b.prep != nil {
+		return b.prep(args)
+	}
+	call := b.call
+	return func(s *session, emitted string, fields map[string]node) string {
+		return call(s, emitted, fields, args)
+	}
 }

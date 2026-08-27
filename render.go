@@ -89,14 +89,15 @@ func render(s *session, n node) string {
 		return render(s, pick(s, n))
 	case *template:
 		if n.repeat == 1 {
-			return expand(s, n.format, n.fields)
+			return expand(s, n)
 		}
 		var b strings.Builder
+		b.Grow(n.repeat * (n.grow + len(n.separator)))
 		for i := 0; i < n.repeat; i++ {
 			if i > 0 {
 				b.WriteString(n.separator)
 			}
-			b.WriteString(expand(s, n.format, n.fields))
+			b.WriteString(expand(s, n))
 		}
 		return b.String()
 	default:
@@ -131,34 +132,30 @@ func classChar(s *session, c rune) byte {
 	}
 }
 
-// expand renders a format string: literals verbatim, class chars randomised, a
-// {name(args)} token via its builtin, any other {token} via resolve. checkTokens
-// validated every token at compile time, so the scan cannot fail here (the
-// eachToken error is unreachable and ignored).
-func expand(s *session, format string, fields map[string]node) string {
+// expand renders a template's compiled ops. compile validated every token, so this
+// cannot fail.
+func expand(s *session, t *template) string {
 	var b strings.Builder
-	_ = eachToken(format, func(t ftoken) error {
-		switch t.kind {
+	b.Grow(t.grow)
+	for i := range t.ops {
+		o := &t.ops[i]
+		switch o.kind {
 		case 'l':
-			b.WriteRune(t.r)
+			b.WriteString(o.lit)
 		case 'c':
-			b.WriteByte(classChar(s, t.r))
+			b.WriteByte(classChar(s, o.r))
+		case 'f':
+			b.WriteString(resolve(s, o.names, t.fields))
 		case 'b':
-			if name, args, ok := funcCall(t.body); ok {
-				b.WriteString(builtins[name].call(s, b.String(), fields, args)) // b.String() is the output so far
-			} else {
-				b.WriteString(resolve(s, t.body, fields))
-			}
+			b.WriteString(o.call(s, b.String(), t.fields)) // b.String() is the output so far
 		}
-		return nil
-	})
+	}
 	return b.String()
 }
 
-// resolve renders a "{token}" body: one or more names separated by '|', one
-// picked at random. A name is a sibling field or a {..path} reference, which
-// linkRefs bound into fields too; checkTokens and linkRefs guarantee both exist.
-func resolve(s *session, token string, fields map[string]node) string {
-	names := strings.Split(token, "|")
+// resolve renders one field alternation: the '|' arms, one picked at random. A
+// name is a sibling field or a {..path} reference, which linkRefs bound into
+// fields too; checkTokens and linkRefs guarantee both exist.
+func resolve(s *session, names []string, fields map[string]node) string {
 	return render(s, fields[names[s.IntN(len(names))]])
 }
