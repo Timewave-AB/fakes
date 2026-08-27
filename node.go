@@ -3,6 +3,7 @@ package fakes
 import (
 	"fmt"
 	"math"
+	"sort"
 )
 
 // node is a compiled template element: literal, choice, or template. Compiling
@@ -106,11 +107,19 @@ func compileTemplate(m map[string]any) (node, error) {
 		}
 	}
 	t := &template{format: format, fields: make(map[string]node, len(m)), repeat: repeat, separator: sep}
-	for k, v := range m {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys) // so which of several bad fields is reported does not vary
+	for _, k := range keys {
 		if k == "format" || k == "weight" || k == "repeat" || k == "separator" {
 			continue
 		}
-		n, err := compile(v)
+		if isRef(k) {
+			return nil, fmt.Errorf("field %q starts with %q, which is reserved for {..path} bindings", k, refPrefix)
+		}
+		n, err := compile(m[k])
 		if err != nil {
 			return nil, fmt.Errorf("field %q: %w", k, err)
 		}

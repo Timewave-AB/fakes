@@ -67,6 +67,10 @@ func loadDir(dir string) (*group, error) {
 		if !strings.HasSuffix(e.Name(), ".json") {
 			continue
 		}
+		name := strings.TrimSuffix(e.Name(), ".json")
+		if isRef(name) {
+			return nil, fmt.Errorf("%s: category %q starts with %q, which is reserved for {..path} bindings", full, name, refPrefix)
+		}
 		b, err := os.ReadFile(full)
 		if err != nil {
 			return nil, err
@@ -79,7 +83,7 @@ func loadDir(dir string) (*group, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", full, err)
 		}
-		g.children[strings.TrimSuffix(e.Name(), ".json")] = n
+		g.children[name] = n
 	}
 	return g, nil
 }
