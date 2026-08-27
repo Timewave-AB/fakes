@@ -140,7 +140,7 @@ func checkTokens(format string, fields map[string]node) error {
 			}
 			if _, ok := fields[name]; !ok {
 				if isOption(name) {
-					return fmt.Errorf("token {%s}: %q is an option, never a field", t.body, name)
+					return fmt.Errorf("token {%s}: %q is an option and can never be a field", t.body, name)
 				}
 				return fmt.Errorf("token {%s}: no field %q", t.body, name)
 			}
