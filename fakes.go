@@ -76,39 +76,73 @@ func New(paths []string, opts ...Option) (*Fakes, error) {
 	return &Fakes{rand: newRand(c.seed, c.seeded), categories: cats}, nil
 }
 
-// List returns the sorted dotted paths Fake can render: every category, the
-// dotted fields within a template, and folder segments — descending transparently
-// through single-variant choices the way a reference does. A multi-variant choice
-// is one path (its pick is random); its items are not separately addressable. It's
-// the discoverable map of what a loaded data set offers, powering the CLI's -list.
+// List returns the sorted dotted paths Fake can render: every category, the dotted
+// fields within a template, and folder segments — descending transparently through
+// single-variant choices the way a reference does. A choice consumes no segment, so
+// a path continues through a multi-variant one only where every variant carries it,
+// which is the rule Fake applies too: List is the set of paths Fake accepts.
 func (f *Fakes) List() []string {
 	var out []string
-	var walk func(prefix string, n node)
-	walk = func(prefix string, n node) {
-		switch n := n.(type) {
-		case *group:
-			for name, c := range n.children {
-				walk(join(prefix, name), c)
-			}
-		case *choice:
-			if len(n.items) == 1 { // a single-variant choice is a transparent wrapper
-				walk(prefix, n.items[0])
-				return
-			}
-			out = append(out, prefix)
-		case *template:
-			out = append(out, prefix)
-			for name, c := range n.fields {
-				if isRef(name) { // a bound {..path} reference, not an authored field
-					continue
-				}
-				walk(join(prefix, name), c)
-			}
-		case literal:
-			out = append(out, prefix)
+	for _, name := range sortedNames(f.categories) {
+		for _, p := range paths(f.categories[name]) {
+			out = append(out, join(name, p))
 		}
 	}
-	walk("", &group{children: f.categories})
+	sort.Strings(out)
+	return out
+}
+
+// paths lists the dot paths addressable from n, relative to it, where "" is n
+// itself. A group has no value of its own, so it contributes only its children's.
+func paths(n node) []string {
+	switch n := n.(type) {
+	case *group:
+		var out []string
+		for _, name := range sortedNames(n.children) {
+			for _, p := range paths(n.children[name]) {
+				out = append(out, join(name, p))
+			}
+		}
+		return out
+	case *template:
+		out := []string{""}
+		for _, name := range sortedNames(n.fields) {
+			if isRef(name) { // a bound {..path} reference, not an authored field
+				continue
+			}
+			for _, p := range paths(n.fields[name]) {
+				out = append(out, join(name, p))
+			}
+		}
+		return out
+	case *choice:
+		if len(n.items) == 1 {
+			return paths(n.items[0])
+		}
+		return append([]string{""}, sharedPaths(n.items)...)
+	case literal:
+		return []string{""}
+	}
+	return nil
+}
+
+// sharedPaths is the sub-paths every item carries — the only ones a path may step
+// through a multi-variant choice to reach.
+func sharedPaths(items []node) []string {
+	count := map[string]int{}
+	for _, it := range items {
+		for _, p := range paths(it) {
+			if p != "" {
+				count[p]++
+			}
+		}
+	}
+	var out []string
+	for p, n := range count {
+		if n == len(items) {
+			out = append(out, p)
+		}
+	}
 	sort.Strings(out)
 	return out
 }
