@@ -176,6 +176,32 @@ func TestDottedTokenErrors(t *testing.T) {
 	}
 }
 
+func TestSamePathReadTwiceReadsOneValue(t *testing.T) {
+	// A path is drawn once per expansion, so reading it twice reads one value —
+	// what a name shown in a display form and again in an address needs.
+	f := engine(7)
+	for i := 0; i < 300; i++ {
+		got := mustRender(t, f, `{"format":"{p.first}|{p.first}",
+			"p":[{"format":"{first}","first":["Anna","Astrid","Elin","Karin"]}]}`)
+		parts := strings.Split(got, "|")
+		if parts[0] != parts[1] {
+			t.Fatalf("draw %d = %q, want one value read twice", i, got)
+		}
+	}
+}
+
+func TestDifferentTailsUnderOneHeadShareTheRow(t *testing.T) {
+	// Two tails of one head stay in the same variant, each keeping its own value.
+	f := engine(8)
+	for i := 0; i < 300; i++ {
+		got := mustRender(t, f, `{"format":"{p.a}{p.b}",
+			"p":[{"format":"x","a":"A","b":"1"},{"format":"y","a":"B","b":"2"}]}`)
+		if got != "A1" && got != "B2" {
+			t.Fatalf("draw %d = %q, want a row's own pair", i, got)
+		}
+	}
+}
+
 func TestBoundPathIsReachableByFake(t *testing.T) {
 	// Binding changes how a format reads a sibling, not what List and Fake offer:
 	// the sub-fields stay addressable on their own.

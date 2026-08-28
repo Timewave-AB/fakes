@@ -177,6 +177,7 @@ func fieldTokens(format string) []string {
 // bound under) and the tail of a dotted path into it. A non-empty tail is what makes
 // the arm a bound draw: its head is drawn once per expansion (see boundHeads).
 type arm struct {
+	name string // as written, and the key a bound draw's value is held under
 	key  string
 	tail []string
 }
@@ -185,13 +186,13 @@ type arm struct {
 // dots — linkRefs binds it whole — so only a sibling name reads as a path.
 func splitArm(name string) arm {
 	if isRef(name) {
-		return arm{key: name}
+		return arm{name: name, key: name}
 	}
 	head, tail, dotted := strings.Cut(name, ".")
 	if !dotted {
-		return arm{key: name}
+		return arm{name: name, key: name}
 	}
-	return arm{key: head, tail: strings.Split(tail, ".")}
+	return arm{name: name, key: head, tail: strings.Split(tail, ".")}
 }
 
 // splitArms splits a token body's '|' alternatives.

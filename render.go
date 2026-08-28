@@ -139,9 +139,12 @@ func expand(s *session, t *template) string {
 	b.Grow(t.grow)
 	// One draw per bound head, held for this expansion only: a nested template and
 	// each repeat iteration get their own, since each is its own expansion.
-	var bound map[string]node
+	var bound *draws
 	if len(t.bound) > 0 {
-		bound = make(map[string]node, len(t.bound))
+		bound = &draws{
+			variant: make(map[string]node, len(t.bound)),
+			value:   make(map[string]string, len(t.bound)),
+		}
 	}
 	for i := range t.ops {
 		o := &t.ops[i]
@@ -159,30 +162,42 @@ func expand(s *session, t *template) string {
 	return b.String()
 }
 
+// draws is what an expansion has already drawn for its bound heads: the variant
+// each head was drawn as, so every path under it reads one row, and the value each
+// path read, so the same path read twice reads one value.
+type draws struct {
+	variant map[string]node
+	value   map[string]string
+}
+
 // resolve renders one field alternation: the '|' alternatives, one picked at
 // random. An arm's key is a sibling field or a {..path} reference, which linkRefs
-// bound into fields too. A head the format addresses by dotted path is drawn once
-// and held in bound, so {place.postal-code} and {place.locality} read one row;
-// the arm's tail then walks into that draw. checkTokens, checkPath and linkRefs
-// prove every step, so this cannot fail.
-func resolve(s *session, arms []arm, t *template, bound map[string]node) string {
+// bound into fields too. A field the format addresses by dotted path is bound: it
+// is drawn once for the expansion, so {place.postal-code} and {place.locality}
+// read one row and either read twice gives one value. checkTokens, checkPath and
+// linkRefs prove every step, so this cannot fail.
+func resolve(s *session, arms []arm, t *template, bound *draws) string {
 	a := arms[s.IntN(len(arms))]
-	n := t.fields[a.key]
-	if t.bound[a.key] {
-		held, drew := bound[a.key]
-		if !drew {
-			held = drawn(s, n)
-			bound[a.key] = held
-		}
-		n = held
+	if !t.bound[a.key] {
+		return render(s, t.fields[a.key])
+	}
+	if v, read := bound.value[a.name]; read {
+		return v
+	}
+	n, drew := bound.variant[a.key]
+	if !drew {
+		n = drawn(s, t.fields[a.key])
+		bound.variant[a.key] = n
 	}
 	if len(a.tail) > 0 {
 		var err error
 		if n, err = descend(s, n, a.tail); err != nil {
-			panic(fmt.Sprintf("fakes: %s: %v", strings.Join(append([]string{a.key}, a.tail...), "."), err))
+			panic(fmt.Sprintf("fakes: %s: %v", a.name, err))
 		}
 	}
-	return render(s, n)
+	v := render(s, n)
+	bound.value[a.name] = v
+	return v
 }
 
 // drawn resolves a choice to one variant, so a bound head is a concrete node the
