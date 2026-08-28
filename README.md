@@ -399,14 +399,16 @@ docker compose run --rm --user "$(id -u):$(id -g)" fmt   # gofmt -w .
 docker compose run --rm --user "$(id -u):$(id -g)" tidy  # go mod tidy
 ```
 
-`docker build .` runs `go vet` and the tests, so it works as a CI gate too.
+Every pull request runs `docker compose run --rm ci` against both the latest and
+the lowest supported Go, and must pass before it can be merged. `docker build .`
+runs the same vet and tests locally.
 
 Tests run against the latest Go by default. Set `GO_VERSION` to check the lowest
 supported version too:
 
 ```sh
-GO_VERSION=1.22 docker compose run --rm test   # lowest supported
-docker compose run --rm test                   # latest
+GO_VERSION=1.22.12 docker compose run --rm test   # lowest supported
+docker compose run --rm test                      # latest
 ```
 
 ## Layout
