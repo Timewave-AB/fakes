@@ -18,7 +18,10 @@ jobs:
           persist-credentials: false
       - name: Latest supported Go
         run: docker compose run --rm ci
+      # Runs even when the step above failed, so a red build says whether the
+      # failure is version-specific.
       - name: Lowest supported Go
+        if: ${{ !cancelled() }}
         env:
           GO_VERSION: 1.22.12
         run: docker compose run --rm ci
