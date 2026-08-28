@@ -196,35 +196,27 @@ func TestPathThroughChoice(t *testing.T) {
 	}
 }
 
-// TestPathKeyIsUnambiguous pins the one shape that can collide: a field literally
-// named "a.b" in one variant and a field "a" holding "b" in another both spell the
-// dot path "a.b". Neither variant may inherit the other's, so the path must fail
-// the same way every call and must not be advertised.
+// TestPathKeyIsUnambiguous pins that the one shape which could collide cannot be
+// written: a field literally named "a.b" and a field "a" holding "b" would both
+// spell "a.b", so a dotted field name is rejected at New and a dot means a path
+// wherever it appears.
 func TestPathKeyIsUnambiguous(t *testing.T) {
 	dir := writeData(t, map[string]string{
 		"cat": `[{"format":"{a.b}","a.b":["1"]},{"format":"{a}","a":{"format":"{b}","b":["2"]}}]`,
 	})
-	f := newFakes(t, dir, WithSeed(1))
-	if slices.Contains(f.List(), "cat.a.b") {
-		t.Errorf("List() advertises cat.a.b, which only one variant carries")
+	_, err := New([]string{dir})
+	if err == nil || !strings.Contains(err.Error(), `field "a.b" contains a dot`) {
+		t.Fatalf("New = %v, want the dotted field name rejected", err)
 	}
-	var first string
-	for i := 0; i < 200; i++ {
-		_, err := f.Fake("cat.a.b")
-		if err == nil {
-			t.Fatal("Fake(cat.a.b) = nil error, want the same failure every call")
-		}
-		if i == 0 {
-			first = err.Error()
-		} else if err.Error() != first {
-			t.Fatalf("cat.a.b error varies:\n  %s\n  %s", first, err.Error())
-		}
+	// The same data without the dotted key is fine, and the path resolves.
+	f := newFakes(t, writeData(t, map[string]string{
+		"cat": `{"format":"{a.b}","a":{"format":"{b}","b":["2"]}}`,
+	}), WithSeed(1))
+	if !slices.Contains(f.List(), "cat.a.b") {
+		t.Error("List() omits cat.a.b, which the data carries")
 	}
-	// Each variant still renders through its own token.
-	for i := 0; i < 50; i++ {
-		if got := fake(t, f, "cat"); got != "1" && got != "2" {
-			t.Fatalf("cat = %q, want 1 or 2", got)
-		}
+	if got := fake(t, f, "cat"); got != "2" {
+		t.Fatalf("cat = %q, want 2", got)
 	}
 }
 
