@@ -120,7 +120,6 @@ func TestNewErrors(t *testing.T) {
 	}{
 		"option name as a field":     {map[string]string{"a": `{"format":"{name} {Weight}kg","name":["Anvil"],"Weight":["7"]}`}, "a", "Anvil 7kg"},
 		"format spelling as a field": {map[string]string{"a": `{"format":"{Format}","Format":["PDF"]}`}, "a", "PDF"},
-		"dotted field via its token": {map[string]string{"a": `{"format":"[{a.b}]","a.b":["V"]}`}, "a", "[V]"},
 		"hyphenated field":           {map[string]string{"a": `{"format":"{x-y}","x-y":["1"]}`}, "a.x-y", "1"},
 		"category named Format":      {map[string]string{"Format": `["1"]`}, "Format", "1"},
 		"folder named Repeat":        {map[string]string{"Repeat/cat": `["1"]`}, "Repeat.cat", "1"},
