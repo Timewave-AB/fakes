@@ -1,0 +1,24 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: vet + fmt + tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Latest supported Go
+        run: docker compose run --rm ci
+      - name: Lowest supported Go
+        env:
+          GO_VERSION: 1.22.12
+        run: docker compose run --rm ci
