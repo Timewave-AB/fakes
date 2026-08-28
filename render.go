@@ -137,6 +137,12 @@ func classChar(s *session, c rune) byte {
 func expand(s *session, t *template) string {
 	var b strings.Builder
 	b.Grow(t.grow)
+	// One draw per bound head, held for this expansion only: a nested template and
+	// each repeat iteration get their own, since each is its own expansion.
+	var bound map[string]node
+	if len(t.bound) > 0 {
+		bound = make(map[string]node, len(t.bound))
+	}
 	for i := range t.ops {
 		o := &t.ops[i]
 		switch o.kind {
@@ -145,7 +151,7 @@ func expand(s *session, t *template) string {
 		case 'c':
 			b.WriteByte(classChar(s, o.r))
 		case 'f':
-			b.WriteString(resolve(s, o.names, t.fields))
+			b.WriteString(resolve(s, o.arms, t, bound))
 		case 'b':
 			b.WriteString(o.call(s, b.String(), t.fields)) // b.String() is the output so far
 		}
@@ -153,9 +159,38 @@ func expand(s *session, t *template) string {
 	return b.String()
 }
 
-// resolve renders one field alternation: the '|' arms, one picked at random. A
-// name is a sibling field or a {..path} reference, which linkRefs bound into
-// fields too; checkTokens and linkRefs guarantee both exist.
-func resolve(s *session, names []string, fields map[string]node) string {
-	return render(s, fields[names[s.IntN(len(names))]])
+// resolve renders one field alternation: the '|' alternatives, one picked at
+// random. An arm's key is a sibling field or a {..path} reference, which linkRefs
+// bound into fields too. A head the format addresses by dotted path is drawn once
+// and held in bound, so {place.postal-code} and {place.locality} read one row;
+// the arm's tail then walks into that draw. checkTokens, checkPath and linkRefs
+// prove every step, so this cannot fail.
+func resolve(s *session, arms []arm, t *template, bound map[string]node) string {
+	a := arms[s.IntN(len(arms))]
+	n := t.fields[a.key]
+	if t.bound[a.key] {
+		held, drew := bound[a.key]
+		if !drew {
+			held = drawn(s, n)
+			bound[a.key] = held
+		}
+		n = held
+	}
+	if len(a.tail) > 0 {
+		var err error
+		if n, err = descend(s, n, a.tail); err != nil {
+			panic(fmt.Sprintf("fakes: %s: %v", strings.Join(append([]string{a.key}, a.tail...), "."), err))
+		}
+	}
+	return render(s, n)
+}
+
+// drawn resolves a choice to one variant, so a bound head is a concrete node the
+// rest of the expansion shares. Nested choices unwrap too: a draw is one value, not
+// another set to pick from.
+func drawn(s *session, n node) node {
+	for c, ok := n.(*choice); ok; c, ok = n.(*choice) {
+		n = pick(s, c)
+	}
+	return n
 }

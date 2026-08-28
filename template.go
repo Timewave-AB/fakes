@@ -142,11 +142,16 @@ func checkTokens(format string, fields map[string]node) error {
 				}
 				continue // a root reference; its target is checked at New (see linkRefs)
 			}
-			if _, ok := fields[name]; !ok {
-				if isOption(name) {
-					return fmt.Errorf("token {%s}: %q is an option and can never be a field", t.body, name)
+			a := splitArm(name)
+			head, ok := fields[a.key]
+			if !ok {
+				if isOption(a.key) {
+					return fmt.Errorf("token {%s}: %q is an option and can never be a field", t.body, a.key)
 				}
-				return fmt.Errorf("token {%s}: no field %q", t.body, name)
+				return fmt.Errorf("token {%s}: no field %q", t.body, a.key)
+			}
+			if err := checkPath(head, a.tail); err != nil {
+				return fmt.Errorf("token {%s}: field %q: %w", t.body, a.key, err)
 			}
 		}
 		return nil
@@ -167,6 +172,38 @@ func fieldTokens(format string) []string {
 	return names
 }
 
+// arm is one alternative of a {a|b} token, split into the key naming the node in
+// a template's fields (a sibling field, or the whole "..path" string a reference is
+// bound under) and the tail of a dotted path into it. A non-empty tail is what makes
+// the arm a bound draw: its head is drawn once per expansion (see boundHeads).
+type arm struct {
+	key  string
+	tail []string
+}
+
+// splitArm splits one token alternative into key and tail. A reference keeps its
+// dots — linkRefs binds it whole — so only a sibling name reads as a path.
+func splitArm(name string) arm {
+	if isRef(name) {
+		return arm{key: name}
+	}
+	head, tail, dotted := strings.Cut(name, ".")
+	if !dotted {
+		return arm{key: name}
+	}
+	return arm{key: head, tail: strings.Split(tail, ".")}
+}
+
+// splitArms splits a token body's '|' alternatives.
+func splitArms(body string) []arm {
+	parts := strings.Split(body, "|")
+	arms := make([]arm, len(parts))
+	for i, p := range parts {
+		arms[i] = splitArm(p)
+	}
+	return arms
+}
+
 // callFn is a builtin bound to one call site: its args already parsed.
 type callFn func(s *session, emitted string, fields map[string]node) string
 
@@ -174,19 +211,23 @@ type callFn func(s *session, emitted string, fields map[string]node) string
 // alternation, or a builtin already bound to its args. compile builds these so
 // render never re-scans the format.
 type op struct {
-	kind  byte     // 'l' literal run, 'c' class char, 'f' field alternation, 'b' builtin
-	lit   string   // kind 'l'
-	r     rune     // kind 'c'
-	names []string // kind 'f': the '|' arms, split once
-	call  callFn
+	kind byte   // 'l' literal run, 'c' class char, 'f' field alternation, 'b' builtin
+	lit  string // kind 'l'
+	r    rune   // kind 'c'
+	arms []arm  // kind 'f': the '|' alternatives, split into key and path once
+	call callFn
 }
 
 // compileOps turns a format string into ops, and returns the smallest output it can
-// produce (literals plus one byte per class char) to size the render buffer. Call
-// checkTokens first: it is what proves the scan and every token are valid.
-func compileOps(format string) ([]op, int) {
+// produce (literals plus one byte per class char) to size the render buffer, plus
+// the fields the format addresses by dotted path — each drawn once per expansion,
+// so every token reading one sees the same row (see expand). bound is nil when the
+// format takes no path, so data that uses none carries no render-time cost.
+// Call checkTokens first: it is what proves the scan and every token are valid.
+func compileOps(format string) ([]op, int, map[string]bool) {
 	var ops []op
 	var lit strings.Builder
+	var bound map[string]bool
 	grow := 0
 	flush := func() {
 		if lit.Len() > 0 {
@@ -208,13 +249,22 @@ func compileOps(format string) ([]op, int) {
 			if name, args, ok := funcCall(t.body); ok {
 				ops = append(ops, op{kind: 'b', call: builtins[name].bind(args)})
 			} else {
-				ops = append(ops, op{kind: 'f', names: strings.Split(t.body, "|")})
+				arms := splitArms(t.body)
+				for _, a := range arms {
+					if len(a.tail) > 0 {
+						if bound == nil {
+							bound = map[string]bool{}
+						}
+						bound[a.key] = true
+					}
+				}
+				ops = append(ops, op{kind: 'f', arms: arms})
 			}
 		}
 		return nil
 	})
 	flush()
-	return ops, grow
+	return ops, grow, bound
 }
 
 // bind returns the closure for one call site, parsing args once via prep if present.

@@ -46,6 +46,10 @@ type template struct {
 	separator string
 	ops       []op // format compiled once (see compileOps); what expand walks
 	grow      int  // minimum output size, to size the render buffer
+	// bound is the fields the format addresses by dotted path, each drawn once per
+	// expansion so two tokens read one row (see boundHeads and expand). nil when
+	// the format takes no path.
+	bound map[string]bool
 }
 
 func (*template) isNode() {}
@@ -144,6 +148,9 @@ func compileTemplate(m map[string]any) (node, error) {
 		if isRef(k) {
 			return nil, fmt.Errorf("field %q starts with %q, which is reserved for {..path} bindings", k, refPrefix)
 		}
+		if strings.Contains(k, ".") {
+			return nil, fmt.Errorf("field %q contains a dot, which separates the segments of a path into a field", k)
+		}
 		n, err := compile(m[k])
 		if err != nil {
 			return nil, fmt.Errorf("field %q: %w", k, err)
@@ -153,8 +160,38 @@ func compileTemplate(m map[string]any) (node, error) {
 	if err := checkTokens(format, t.fields); err != nil {
 		return nil, err
 	}
-	t.ops, t.grow = compileOps(format)
+	t.ops, t.grow, t.bound = compileOps(format)
 	return t, nil
+}
+
+// checkPath is the static twin of descend: it reports whether a dotted tail can
+// address a node whichever way the draw goes. A multi-variant choice must carry the
+// whole remaining path in the set every variant shares, so a path that validates
+// here resolves on every render, and a typo is a New-time error.
+func checkPath(n node, tail []string) error {
+	if len(tail) == 0 {
+		return nil
+	}
+	switch n := n.(type) {
+	case *template:
+		child, ok := n.fields[tail[0]]
+		if !ok {
+			return fmt.Errorf("no field %q", tail[0])
+		}
+		return checkPath(child, tail[1:])
+	case *choice:
+		if len(n.items) > 1 {
+			if want := strings.Join(tail, "."); !n.shared[want] {
+				return unreachableInChoice(n, want)
+			}
+			return nil // every variant carries it, so any draw resolves
+		}
+		return checkPath(n.items[0], tail)
+	case literal:
+		return fmt.Errorf("a plain string has no field %q", tail[0])
+	default:
+		return fmt.Errorf("cannot descend into %T at %q", n, tail[0])
+	}
 }
 
 // repeatOf reads a template's "repeat" (default 1): how many times its format
