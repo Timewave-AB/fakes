@@ -234,8 +234,9 @@ This yields e.g. `bar foo baz`. `repeat` must be a positive integer and
 `format`, `weight`, `repeat` and `separator` are the only options; **any other key
 is a field**. So write `seperator` and you get a field by that name while the
 option stays unset. `New` rejects an option that cannot take effect — a
-`separator` without a `repeat` above 1, a `weight` outside a choice — and a
-category or folder name containing a dot, which no dot path could reach.
+`separator` without a `repeat` above 1, a `weight` outside a choice — and a name
+containing a dot: a category or folder no dot path could reach, or a field whose
+dot a token would read as a path (see **Correlated fields**).
 
 **Functions.** A `{name()}` token calls a built-in function instead of rendering
 a field. `{luhn()}` appends a Luhn check digit over the digits emitted **so far**
@@ -329,6 +330,41 @@ fails at `New`. A reference that leads back to its own value (directly, mutually
 or through a chain) is a cycle that would never finish rendering, so it too is
 rejected at `New`.
 
+**Correlated fields.** A `{name.field}` token addresses a **path** into a sibling,
+and a sibling addressed that way is drawn **once per expansion** — so several
+tokens read one row. That is how two facts that belong together, such as a
+locality and the postal code that really covers it, stay together:
+
+```json
+{ "format": "{street} {number}\n{place.postal-code} {place.locality}",
+  "place": [
+    { "format": "{locality}", "locality": "Stockholm", "postal-code": { "format": "#100 00" }, "weight": 975 },
+    { "format": "{locality}", "locality": "Tranås",    "postal-code": { "format": "#5#7#3 00" }, "weight": 18 }
+  ] }
+```
+
+renders e.g. `Kungsgatan 35` / `176 99 Stockholm`, never a Stockholm postal code
+beside Tranås. Each row carries its own `weight`, so how often a place appears is data
+too. The rule holds both ways: two tails of one head come from the same row, and
+one path read twice reads one value (`{p.first} … {p.first}@…` gives one name).
+A bare `{place}` in such a format reads that same draw.
+
+The binding lasts for one expansion, so each `repeat` iteration draws again and a
+nested template keeps its own. A field no dotted token addresses is unaffected —
+`{word} {word}` still draws twice — and so are `{calc()}` operands, which read
+their fields directly.
+
+`New` checks a path the way `Fake` resolves one: every variant of a multi-variant
+choice must carry the whole path, so a row missing a field is named at load:
+
+```
+token {place.postal-code}: field "place": not every variant of this 2-way choice
+carries "postal-code"; all carry [locality]
+```
+
+The sub-fields stay addressable on their own — `Fake("address.place.locality")`
+renders, and `List` advertises it.
+
 **Format string.** Every character is literal except:
 
 | Token | Expands to |
@@ -339,6 +375,7 @@ rejected at `New`.
 | `a` | letter a–z |
 | `#` | escape — the next char is literal (`#0` → `0`, `##` → `#`) |
 | `{name}` | render the sibling field `name` |
+| `{name.field}` | render `field` of one draw of the sibling `name` (see **Correlated fields**) |
 | `{name()}` | call a built-in function (see **Functions**) |
 | `{..path}` | render the node at a dot path from the data root (see **References**) |
 
@@ -432,8 +469,8 @@ docker compose run --rm test                      # latest
 ```
 fakes.go        Fakes, New, List, options, seeding
 node.go         the node model and JSON -> node compilation
-render.go       Fake and the recursive renderer (choices, format strings, paths)
-template.go     the {token} grammar: scanning, function tokens, validation
+render.go       Fake and the recursive renderer (choices, format strings, paths, bound draws)
+template.go     the {token} grammar: scanning, function and path tokens, validation
 reference.go    {..path} binding across the tree, and cycle detection
 builtins.go     the {name()} function registry and its implementations
 calc.go         the {calc()} arithmetic evaluator: parser, eval, validation
