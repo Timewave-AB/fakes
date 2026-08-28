@@ -128,7 +128,7 @@ func TestShippedMiscReferenceData(t *testing.T) {
 }
 
 // TestSwedishPersonNamesHaveNoTripleLetter pins an orthographic rule the shape
-// regexes miss: Swedish never triples a consonant.
+// regexes miss: no generated name repeats a character three times over.
 func TestSwedishPersonNamesHaveNoTripleLetter(t *testing.T) {
 	f := newFakes(t, "data/sv_SE", WithSeed(11))
 	for _, path := range []string{"person", "person.last"} {

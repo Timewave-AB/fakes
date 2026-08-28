@@ -338,8 +338,8 @@ rejected at `New`.
 `{a|b}` renders one of the sibling fields `a` or `b`, chosen at random; an arm
 may be a `{..path}` reference too (`{name|..en_US.person}`).
 
-Inside a `format`, `0 1 A a` are **always** character classes — so a fixed digit
-or letter must be escaped (`#1`, `#A`) or it becomes random. A format of
+Inside a `format`, `0 1 A a` are **always** character classes — so a fixed `0`,
+`1`, `A` or `a` must be escaped (`#1`, `#A`) or it becomes random. A format of
 `100 Main St` renders e.g. `506 Mdin St` — the `1`, `0`, `0` and `a` were random,
 the `M`, `in` and `St` were not. A half-fixed string is the trap: `555-0000`
 keeps `555-` and randomises the last four digits. For a value with no
