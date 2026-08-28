@@ -4,7 +4,7 @@
     "street": [
       {
         "format": "{first}{last}",
-        "first": ["Ängs", "Bergs", "Björk", "Drottning", "Eke", "Furu", "Hamn", "Köpmans", "Kungs", "Linné", "Norra", "Nybro", "Oden", "Öster", "Park", "Skogs", "Skol", "Slotts", "Söder", "Stations", "Stor", "Strand", "Trädgårds", "Vasa", "Vasa", "Väster"],
+        "first": ["Ängs", "Bergs", "Björk", "Drottning", "Eke", "Furu", "Hamn", "Köpmans", "Kungs", "Linné", "Norra", "Nybro", "Oden", "Öster", "Park", "Skogs", "Skol", "Slotts", "Söder", "Stations", "Stor", "Strand", "Trädgårds", "Vasa", "Väster"],
         "last": ["gatan", "vägen", "stigen", "gränd", "backen", "torget", "allén"]
       },
       ["Avenyn", "Birger Jarlsgatan", "Promenaden", "Staby", "Sveavägen", "Vintjärn"]
