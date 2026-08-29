@@ -82,6 +82,15 @@ func BenchmarkBoundDeep(b *testing.B) {
 	benchPath(b, dir, "addr")
 }
 
+// BenchmarkBoundWide reads ten paths from one row: the point where the maps an
+// expansion holds outgrow a single bucket.
+func BenchmarkBoundWide(b *testing.B) {
+	dir := tmpData(b, "row", `{"format":"{r.a}{r.b}{r.c}{r.d}{r.e}{r.f}{r.g}{r.h}{r.i}{r.j}","r":[
+		{"format":"x","a":"1","b":"2","c":"3","d":"4","e":"5","f":"6","g":"7","h":"8","i":"9","j":"0"},
+		{"format":"y","a":"A","b":"B","c":"C","d":"D","e":"E","f":"F","g":"G","h":"H","i":"I","j":"J"}]}`)
+	benchPath(b, dir, "row")
+}
+
 // BenchmarkNew measures load+compile+validate of the whole shipped tree.
 func BenchmarkNew(b *testing.B) {
 	b.ReportAllocs()
