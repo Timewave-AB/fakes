@@ -349,6 +349,17 @@ too. The rule holds both ways: two tails of one head come from the same row, and
 one path read twice reads one value (`{p.first} … {p.first}@…` gives one name).
 A bare `{place}` in such a format reads that same draw.
 
+A path is held at **every level it passes through**, not just the first, so the
+facts can nest as deeply as they belong:
+
+```json
+{ "format": "{p.geo.town.name} {p.geo.town.zip}, {p.geo.region}", "p": [ … ] }
+```
+
+renders `Kiruna 98100, Norrbotten` — the town, the zip that covers it and the
+region it sits in all come from one draw. Two paths part company exactly where
+they diverge: `{p.a.v}` and `{p.b.v}` share the row and nothing below it.
+
 The binding lasts for one expansion, so each `repeat` iteration draws again and a
 nested template keeps its own. A field no dotted token addresses is unaffected —
 `{word} {word}` still draws twice — and so are `{calc()}` operands, which read
