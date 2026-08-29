@@ -202,6 +202,92 @@ func TestDifferentTailsUnderOneHeadShareTheRow(t *testing.T) {
 	}
 }
 
+// deepPlaces nests the correlated facts a level down: the row holds an addr, and
+// the addr holds the city and the zip that belongs to it.
+const deepPlaces = `{"format":"%s","p":[{"format":"{addr}","addr":[
+	{"format":"{city}","city":"Stockholm","zip":"11111"},
+	{"format":"{city}","city":"Kiruna","zip":"98100"}]}]}`
+
+func TestPathHoldsItsDrawAtEveryLevel(t *testing.T) {
+	// A choice below the head is drawn once too, so two paths sharing a prefix
+	// share every level of it — not just the row they started from.
+	f := engine(11)
+	seen := map[string]bool{}
+	for i := 0; i < 500; i++ {
+		got := mustRender(t, f, strings.Replace(deepPlaces, "%s", "{p.addr.city}/{p.addr.zip}", 1))
+		if got != "Stockholm/11111" && got != "Kiruna/98100" {
+			t.Fatalf("draw %d = %q, want a city and the zip that belongs to it", i, got)
+		}
+		seen[got] = true
+	}
+	if len(seen) < 2 {
+		t.Fatalf("500 draws produced only %v, want both", seen)
+	}
+}
+
+func TestPathHoldsItsDrawThreeLevelsDown(t *testing.T) {
+	// The rule does not run out at two: every level a path passes through is held.
+	f := engine(12)
+	tmpl := `{"format":"{p.geo.town.name}/{p.geo.town.zip} {p.geo.region}","p":[{"format":"{geo}","geo":[
+		{"format":"{town}","region":"Norrbotten","town":[
+			{"format":"{name}","name":"Kiruna","zip":"98100"},
+			{"format":"{name}","name":"Luleå","zip":"97200"}]},
+		{"format":"{town}","region":"Skåne","town":[
+			{"format":"{name}","name":"Malmö","zip":"21100"},
+			{"format":"{name}","name":"Lund","zip":"22100"}]}]}]}`
+	want := map[string]bool{
+		"Kiruna/98100 Norrbotten": true, "Luleå/97200 Norrbotten": true,
+		"Malmö/21100 Skåne": true, "Lund/22100 Skåne": true,
+	}
+	seen := map[string]bool{}
+	for i := 0; i < 600; i++ {
+		got := mustRender(t, f, tmpl)
+		if !want[got] {
+			t.Fatalf("draw %d = %q, want a town with its own zip and region", i, got)
+		}
+		seen[got] = true
+	}
+	if len(seen) != len(want) {
+		t.Fatalf("600 draws produced %v, want all four towns", seen)
+	}
+}
+
+func TestPathWalksVariantsOfDifferentShape(t *testing.T) {
+	// One variant holds addr as a plain template where another holds a choice.
+	// Both carry the path, so both must walk — the walk reads what it drew, never
+	// assuming a shape.
+	f := engine(13)
+	tmpl := `{"format":"{p.addr.city}/{p.addr.zip}","p":[
+		{"format":"{addr}","addr":{"format":"{city}","city":"Kiruna","zip":"98100"}},
+		{"format":"{addr}","addr":[
+			{"format":"{city}","city":"Malmö","zip":"21100"},
+			{"format":"{city}","city":"Lund","zip":"22100"}]}]}`
+	for i := 0; i < 400; i++ {
+		got := mustRender(t, f, tmpl)
+		if got != "Kiruna/98100" && got != "Malmö/21100" && got != "Lund/22100" {
+			t.Fatalf("draw %d = %q, want a city with its own zip", i, got)
+		}
+	}
+}
+
+func TestDeepPathsUnderOneHeadStayIndependentWhereTheyDiverge(t *testing.T) {
+	// Two paths share only what they actually share: a common prefix is one draw,
+	// and each keeps its own draw past the point they part.
+	f := engine(14)
+	tmpl := `{"format":"{p.a.v}{p.b.v}","p":[{"format":"x",
+		"a":[{"format":"{v}","v":"1"},{"format":"{v}","v":"2"}],
+		"b":[{"format":"{v}","v":"1"},{"format":"{v}","v":"2"}]}]}`
+	seen := map[string]bool{}
+	for i := 0; i < 400; i++ {
+		seen[mustRender(t, f, tmpl)] = true
+	}
+	for _, want := range []string{"11", "12", "21", "22"} {
+		if !seen[want] {
+			t.Fatalf("400 draws produced %v, want every combination including %q", seen, want)
+		}
+	}
+}
+
 func TestCycleThroughAPathTokenIsRejected(t *testing.T) {
 	// A path token is a render edge like any other, so a cycle routed through one
 	// must be caught at New. Reaching render would be fatal: the recursion never
