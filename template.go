@@ -180,6 +180,10 @@ type arm struct {
 	name string // as written, and the key a bound draw's value is held under
 	key  string
 	tail []string
+	// steps holds the key for each segment the walk passes *through* — the path
+	// prefixes below the head and above the leaf. The head is bound under key and
+	// the leaf's value under name, so a one-segment tail needs none of these.
+	steps []string
 }
 
 // splitArm splits one token alternative into key and tail. A reference keeps its
@@ -192,7 +196,12 @@ func splitArm(name string) arm {
 	if !dotted {
 		return arm{name: name, key: name}
 	}
-	return arm{name: name, key: head, tail: strings.Split(tail, ".")}
+	segs := strings.Split(tail, ".")
+	var steps []string
+	for i := 0; i < len(segs)-1; i++ { // every prefix except the leaf's own
+		steps = append(steps, head+"."+strings.Join(segs[:i+1], "."))
+	}
+	return arm{name: name, key: head, tail: segs, steps: steps}
 }
 
 // splitArms splits a token body's '|' alternatives.
