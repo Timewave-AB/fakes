@@ -189,15 +189,34 @@ func resolve(s *session, arms []arm, t *template, bound *draws) string {
 		n = drawn(s, t.fields[a.key])
 		bound.variant[a.key] = n
 	}
-	if len(a.tail) > 0 {
-		var err error
-		if n, err = descend(s, n, a.tail); err != nil {
-			panic(fmt.Sprintf("fakes: %s: %v", a.name, err))
+	// Walk the tail, holding the draw at every level the path passes through, so
+	// two paths sharing a prefix share every choice along it, not just the head.
+	for i, seg := range a.tail {
+		if i < len(a.steps) {
+			held, drew := bound.variant[a.steps[i]]
+			if !drew {
+				held = drawn(s, child(n, seg))
+				bound.variant[a.steps[i]] = held
+			}
+			n = held
+			continue
 		}
+		n = child(n, seg)
 	}
 	v := render(s, n)
 	bound.value[a.name] = v
 	return v
+}
+
+// child is the node one path segment names below an already-drawn node. checkPath
+// proved the segment exists and that drawn leaves a template here, so this cannot
+// fail.
+func child(n node, seg string) node {
+	t, ok := n.(*template)
+	if !ok {
+		panic(fmt.Sprintf("fakes: %q under %T, which carries no fields", seg, n))
+	}
+	return t.fields[seg]
 }
 
 // drawn resolves a choice to one variant, so a bound head is a concrete node the
