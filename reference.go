@@ -190,7 +190,10 @@ func renderEdges(n node) []renderEdge {
 	case *template:
 		var es []renderEdge
 		for _, name := range append(fieldTokens(n.format), calcOperands(n.format)...) {
-			if c, ok := n.fields[name]; ok {
+			// A path token renders its head, so the edge is to the head — over-
+			// approximating the sub-field it descends to, which is what keeps the
+			// cycle walk conservative rather than blind.
+			if c, ok := n.fields[splitArm(name).key]; ok {
 				es = append(es, renderEdge{c, name})
 			}
 		}
