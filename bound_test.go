@@ -202,6 +202,18 @@ func TestDifferentTailsUnderOneHeadShareTheRow(t *testing.T) {
 	}
 }
 
+func TestCycleThroughAPathTokenIsRejected(t *testing.T) {
+	// A path token is a render edge like any other, so a cycle routed through one
+	// must be caught at New. Reaching render would be fatal: the recursion never
+	// terminates, and a stack overflow cannot be recovered.
+	_, err := New([]string{writeData(t, map[string]string{
+		"a": `{"format":"{p.x}","p":{"format":"{x}","x":{"format":"{..a}"}}}`,
+	})})
+	if err == nil || !strings.Contains(err.Error(), "reference cycle") {
+		t.Fatalf("New = %v, want the cycle through {p.x} rejected", err)
+	}
+}
+
 func TestBoundPathIsReachableByFake(t *testing.T) {
 	// Binding changes how a format reads a sibling, not what List and Fake offer:
 	// the sub-fields stay addressable on their own.
