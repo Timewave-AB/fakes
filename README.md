@@ -153,8 +153,9 @@ A `*Fakes` is **not** safe for concurrent use — create one per goroutine.
 The library ships a ready-to-use set under [`data/`](data): one folder per locale
 (`en_US`, `sv_SE`) plus a locale-neutral `misc` folder. Point either tool at the
 whole tree, a single folder, a copy, or your own directory — anywhere on disk. A
-category or folder name must not contain a dot, and dot-prefixed entries are
-skipped, so a data directory can also be a checkout.
+category or folder name must not use `.`, `|`, `(` or `}` (see [Data
+format](#data-format)), and dot-prefixed entries are skipped, so a data directory
+can also be a checkout.
 
 A directory is just a namespace. Each JSON file is a category named after the
 file; each subdirectory is a dot-path segment — folders nest exactly like JSON
@@ -235,8 +236,10 @@ This yields e.g. `bar foo baz`. `repeat` must be a positive integer and
 is a field**. So write `seperator` and you get a field by that name while the
 option stays unset. `New` rejects an option that cannot take effect — a
 `separator` without a `repeat` above 1, a `weight` outside a choice — and a name
-containing a dot: a category or folder no dot path could reach, or a field whose
-dot a token would read as a path (see **Correlated fields**).
+using a character the grammars reserve: `.` separates the segments of a path, `|`
+the arms of a token, `(` opens a function call and `}` ends the token, so a name
+carrying one is a name no format could ever spell. That holds for a category, a
+folder and a field alike.
 
 **Functions.** A `{name()}` token calls a built-in function instead of rendering
 a field. `{luhn()}` appends a Luhn check digit over the digits emitted **so far**
@@ -309,11 +312,13 @@ hyphenated field name can't be an operand. The expression is checked at `New`
 { "format": "{net} x {qty} = {calc(net * qty, 2)}", "net": ["19.99"], "qty": ["3"] }
 ```
 
-renders `19.99 x 3 = 59.97`. Each name is rendered where it appears, so a field
-shown *and* used in a `calc` is drawn twice — keep a shared operand in a
-single-value field if the two must agree. A field that doesn't render to a number
-yields `NaN`, and a division by zero yields `Inf`; both print rather than failing
-the render.
+renders `19.99 x 3 = 59.97`. A field a `calc` reads is drawn **once per
+expansion** and held, so the operand shown is the operand computed — give `net`
+three prices and the line still multiplies the one it printed. The hold covers
+every reading of that name in the format, so `{w} {w} {calc(w)}` is one value
+three times; a name no `calc` reads is unaffected, and `{word} {word}` still draws
+twice. A field that doesn't render to a number yields `NaN`, and a division by
+zero yields `Inf`; both print rather than failing the render.
 
 **References.** A `{..path}` token renders a node from the **data root** instead
 of a sibling field — the dot path is the one `Fake` takes, resolved across every
@@ -348,8 +353,10 @@ beside Tranås. Each row carries its own `weight`, so how often a place appears 
 too. The rule holds both ways: two tails of one head come from the same row, and
 one path read twice reads one value (`{p.first} … {p.first}@…` gives one name).
 
-**One draw, one spelling.** A format may not both *render* a level and *read a
-path into* it — `{p}` beside `{p.first}`, or `{place}` beside `{place.locality}`.
+**One draw, one spelling.** The hold above is what a dotted token reads, and a
+`{calc()}` operand reads its sibling the same way (see **Computation**). A format
+may not both *render* a level and *read a path into* it — `{p}` beside
+`{p.first}`, or `{place}` beside `{place.locality}`.
 Rendering a level expands it afresh while a path reads the level's held draw, so
 the two would disagree; naming the fields you want is the one spelling that
 always agrees, and the other is a load error. This covers every way a level can
@@ -404,7 +411,9 @@ renders, and `List` advertises it.
 | `{..path}` | render the node at a dot path from the data root (see **References**) |
 
 `{a|b}` renders one of the sibling fields `a` or `b`, chosen at random; an arm
-may be a `{..path}` reference too (`{name|..en_US.person}`).
+may be a `{..path}` reference too (`{name|..en_US.person}`). The arms are picked
+evenly and must differ — `{a|a|b}` would skew the odds, which is what `weight` is
+for, so a repeated arm is a load error.
 
 Inside a `format`, `0 1 A a` are **always** character classes — so a fixed `0`,
 `1`, `A` or `a` must be escaped (`#1`, `#A`) or it becomes random. A format of
