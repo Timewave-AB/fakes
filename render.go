@@ -190,9 +190,7 @@ func resolve(s *session, arms []arm, t *template, bound *draws) string {
 		bound.variant[a.key] = n
 	}
 	// Hold the draw at every level passed through, so two paths sharing a prefix
-	// share it. The leaf needs no hold: no other token can name it, since
-	// checkNoOverlap rejects a field or calc spelling and checkNotBound a
-	// reference one.
+	// share it.
 	for i, seg := range a.tail {
 		if i < len(a.steps) {
 			held, drew := bound.variant[a.steps[i]]
