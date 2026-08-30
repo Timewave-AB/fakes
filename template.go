@@ -229,7 +229,9 @@ func checkNoOverlap(ops []op, bound map[string]string, format string) error {
 			names = append(names, reader{name, fmt.Sprintf("calc operand %q", name)})
 		}
 	}
-	sort.Slice(names, func(i, j int) bool { return names[i].name < names[j].name })
+	// Stable, so two readers of one name (a token and a calc operand both naming
+	// "p") are reported in the order the format writes them.
+	sort.SliceStable(names, func(i, j int) bool { return names[i].name < names[j].name })
 	for i, level := range names {
 		for _, path := range names[i+1:] {
 			if strings.HasPrefix(path.name, level.name+".") {
