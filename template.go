@@ -67,15 +67,12 @@ func eachToken(format string, fn func(ftoken) error) error {
 // seq is the one exception: it advances per-session counter state, which is itself
 // deterministic (1, 2, 3 …). arity is the exact arg count, or -1 for variadic
 // (then check does all the validation). The optional check validates args at
-// compile time (their values, beyond the count). A builtin supplies exactly one of
-// prep (args parsed once, at compile) or call (args parsed per render). The registry
-// lives in builtins.go.
+// compile time (their values, beyond the count). The registry lives in builtins.go.
 type builtin struct {
 	arity int
 	// prep parses validated args once, at compile time, into the closure expand calls.
 	prep  func(args []string) callFn
 	check func(fields map[string]node, args []string) error
-	call  func(s *session, emitted string, fields map[string]node, args []string) string
 }
 
 // funcCall splits a "{token}" body shaped name(args) into its parts; ok is false
@@ -327,7 +324,7 @@ func compileOps(format string) ([]op, int, map[string]string) {
 		case 'b':
 			flush()
 			if name, args, ok := funcCall(t.body); ok {
-				ops = append(ops, op{kind: 'b', call: builtins[name].bind(args)})
+				ops = append(ops, op{kind: 'b', call: builtins[name].prep(args)})
 			} else {
 				arms := splitArms(t.body)
 				for _, a := range arms {
@@ -347,15 +344,4 @@ func compileOps(format string) ([]op, int, map[string]string) {
 	})
 	flush()
 	return ops, grow, bound
-}
-
-// bind returns the closure for one call site, parsing args once via prep if present.
-func (b builtin) bind(args []string) callFn {
-	if b.prep != nil {
-		return b.prep(args)
-	}
-	call := b.call
-	return func(s *session, emitted string, fields map[string]node) string {
-		return call(s, emitted, fields, args)
-	}
 }
