@@ -24,13 +24,11 @@ const (
 // clock. Add a builtin only for what data can't express: a random v4 UUID and a
 // 24-hex ObjectID both ship as data, so the uuid builtin is v7.
 var builtins = map[string]builtin{
-	"luhn": {arity: 0, call: func(_ *session, e string, _ map[string]node, _ []string) string {
-		return string(rune('0' + luhnCheck(e)))
-	}},
-	"mod11": {arity: 0, call: func(_ *session, e string, _ map[string]node, _ []string) string { return mod11Check(e) }},
-	"ean":   {arity: 0, call: func(_ *session, e string, _ map[string]node, _ []string) string { return eanCheck(e) }},
-	"uuid":  {arity: 0, call: func(s *session, _ string, _ map[string]node, _ []string) string { return uuidV7(s) }},
-	"ulid":  {arity: 0, call: func(s *session, _ string, _ map[string]node, _ []string) string { return ulid(s) }},
+	"luhn":  {arity: 0, prep: derive(func(e string) string { return string(rune('0' + luhnCheck(e))) })},
+	"mod11": {arity: 0, prep: derive(mod11Check)},
+	"ean":   {arity: 0, prep: derive(eanCheck)},
+	"uuid":  {arity: 0, prep: generate(uuidV7)},
+	"ulid":  {arity: 0, prep: generate(ulid)},
 	"nanoid": {arity: 1, check: posIntArg, prep: func(a []string) callFn {
 		n := atoi(a[0])
 		return func(s *session, _ string, _ map[string]node) string { return nanoid(s, n) }
@@ -57,7 +55,10 @@ var builtins = map[string]builtin{
 			return strconv.FormatFloat(lo+s.Float64()*(hi-lo), 'f', dp, 64)
 		}
 	}},
-	"iban": {arity: 1, check: ibanArg, call: func(s *session, _ string, _ map[string]node, a []string) string { return iban(s, a[0]) }},
+	"iban": {arity: 1, check: ibanArg, prep: func(a []string) callFn {
+		cc := a[0]
+		return func(s *session, _ string, _ map[string]node) string { return iban(s, cc) }
+	}},
 	// calc is the one builtin that reads the sibling fields (to render its operands);
 	// every other ignores them. 1 or 2 args: the expression and an optional decimals.
 	"calc": {arity: -1, check: checkCalc, prep: calcPrep},
@@ -73,6 +74,21 @@ var builtins = map[string]builtin{
 			return strconv.FormatUint(s.next(key), 10)
 		}
 	}},
+}
+
+// derive and generate are the two argument-free builtin shapes the README names: a
+// derivation reads the output emitted so far, a generator reads only the rng. Each
+// lifts that one function into the prep every registry entry supplies.
+func derive(f func(emitted string) string) func([]string) callFn {
+	return func([]string) callFn {
+		return func(_ *session, emitted string, _ map[string]node) string { return f(emitted) }
+	}
+}
+
+func generate(f func(rng) string) func([]string) callFn {
+	return func([]string) callFn {
+		return func(s *session, _ string, _ map[string]node) string { return f(s) }
+	}
 }
 
 const hexDigits = "0123456789abcdef"

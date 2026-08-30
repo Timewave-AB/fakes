@@ -181,18 +181,14 @@ func ibanValid(s string) bool {
 	return rem == 1
 }
 
-// TestRegistryShapes pins the builtin contract bind relies on: exactly one of prep
-// or call, and args parsed at compile only behind a check. A registry entry with
-// neither would compile and then panic inside a render.
+// TestRegistryShapes pins the builtin contract compileOps relies on: every entry
+// supplies prep, and args parsed at compile only behind a check.
 func TestRegistryShapes(t *testing.T) {
 	for name, b := range builtins {
-		switch {
-		case b.prep == nil && b.call == nil:
-			t.Errorf("builtin %q has neither prep nor call: bind would return a nil-func closure", name)
-		case b.prep != nil && b.call != nil:
-			t.Errorf("builtin %q has both prep and call; call is dead", name)
+		if b.prep == nil {
+			t.Errorf("builtin %q has no prep: compileOps would call a nil func", name)
 		}
-		if b.prep != nil && b.arity != 0 && b.check == nil {
+		if b.arity != 0 && b.check == nil {
 			t.Errorf("builtin %q parses args in prep with no check", name)
 		}
 	}
