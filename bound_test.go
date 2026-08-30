@@ -93,11 +93,22 @@ func TestReferenceNamingABoundLevelIsRejected(t *testing.T) {
 	// A reference can name a bound level from the data root, which renders it
 	// afresh beside the path that reads its held draw — the same overlap by
 	// another spelling.
-	_, err := New([]string{writeData(t, map[string]string{
-		"cat": `{"format":"{p.first}|{..cat.p}","p":[{"format":"{first}","first":["Anna","Bo"]}]}`,
-	})})
-	if err == nil || !strings.Contains(err.Error(), "reads a path into") {
-		t.Fatalf("New = %v, want the reference rejected as an overlap", err)
+	rejected := map[string]string{
+		"reference names the head": `{"format":"{p.first}|{..cat.p}","p":[{"format":"{first}","first":["Anna","Bo"]}]}`,
+		"reference names the leaf": `{"format":"{p.addr}|{..cat.p.addr}","p":{"format":"x","addr":["A","B","C","D"]}}`,
+	}
+	for name, file := range rejected {
+		_, err := New([]string{writeData(t, map[string]string{"cat": file})})
+		if err == nil || !strings.Contains(err.Error(), "reads a path into") {
+			t.Errorf("%s: New = %v, want the reference rejected as an overlap", name, err)
+		}
+	}
+	// A reference to anything this format does not bind is untouched.
+	if _, err := New([]string{writeData(t, map[string]string{
+		"cat":     `{"format":"{p.first} {..surname}","p":[{"format":"{first}","first":["Anna","Bo"]}]}`,
+		"surname": `["Eriksson","Lindqvist"]`,
+	})}); err != nil {
+		t.Errorf("New = %v, want a reference outside the bound level accepted", err)
 	}
 }
 

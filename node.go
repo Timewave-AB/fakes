@@ -49,7 +49,9 @@ type template struct {
 	// bound is the fields the format addresses by dotted path, each drawn once per
 	// expansion so two tokens read one row (see compileOps and expand). nil when
 	// the format takes no path.
-	bound map[string]bool
+	// Each maps the field to one path token reading it, for naming the other half
+	// of an overlap.
+	bound map[string]string
 }
 
 func (*template) isNode() {}
@@ -161,7 +163,7 @@ func compileTemplate(m map[string]any) (node, error) {
 		return nil, err
 	}
 	t.ops, t.grow, t.bound = compileOps(format)
-	if err := checkNoOverlap(t.ops, t.bound); err != nil {
+	if err := checkNoOverlap(t.ops, t.bound, format); err != nil {
 		return nil, err
 	}
 	return t, nil
@@ -171,28 +173,35 @@ func compileTemplate(m map[string]any) (node, error) {
 // address a node whichever way the draw goes. A multi-variant choice must carry the
 // whole remaining path in the set every variant shares, so a path that validates
 // here resolves on every render, and a typo is a New-time error.
-func checkPath(n node, tail []string) error {
+func checkPath(n node, tail []string, level string) error {
 	if len(tail) == 0 {
 		return nil
 	}
 	switch n := n.(type) {
 	case *template:
 		if n.repeat > 1 {
-			return fmt.Errorf("it carries a repeat, which a path reading one draw of it cannot apply")
+			return fmt.Errorf("the level %q carries a repeat, which a path reading one draw of it cannot apply", level)
 		}
 		child, ok := n.fields[tail[0]]
 		if !ok {
 			return fmt.Errorf("no field %q", tail[0])
 		}
-		return checkPath(child, tail[1:])
+		return checkPath(child, tail[1:], level+"."+tail[0])
 	case *choice:
 		if len(n.items) > 1 {
 			if want := strings.Join(tail, "."); !n.shared[want] {
 				return unreachableInChoice(n, want)
 			}
-			return nil // every variant carries it, so any draw resolves
+			// Reachability is settled; each variant still answers for itself, so a
+			// rule about the level (its repeat) holds behind a choice as in front.
+			for _, item := range n.items {
+				if err := checkPath(item, tail, level); err != nil {
+					return err
+				}
+			}
+			return nil
 		}
-		return checkPath(n.items[0], tail)
+		return checkPath(n.items[0], tail, level)
 	case literal:
 		return fmt.Errorf("a plain string has no field %q", tail[0])
 	default:

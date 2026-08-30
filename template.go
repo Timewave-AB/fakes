@@ -154,7 +154,7 @@ func checkTokens(format string, fields map[string]node) error {
 				}
 				return fmt.Errorf("token {%s}: no field %q", t.body, a.key)
 			}
-			if err := checkPath(head, a.tail); err != nil {
+			if err := checkPath(head, a.tail, a.key); err != nil {
 				return fmt.Errorf("token {%s}: field %q: %w", t.body, a.key, err)
 			}
 		}
@@ -211,28 +211,38 @@ func splitArm(name string) arm {
 // expands it afresh, so their values disagree. One spelling, so there is nothing
 // to get wrong. Names are compared in sorted order, so which pair is reported
 // does not depend on where the tokens sit.
-func checkNoOverlap(ops []op, bound map[string]bool) error {
-	var names []string
+func checkNoOverlap(ops []op, bound map[string]string, format string) error {
+	var names []reader
 	for i := range ops {
 		if ops[i].kind != 'f' {
 			continue
 		}
 		for _, a := range ops[i].arms {
-			if bound[a.key] {
-				names = append(names, a.name)
+			if _, isBound := bound[a.key]; isBound {
+				names = append(names, reader{a.name, "token {" + a.name + "}"})
 			}
 		}
 	}
-	sort.Strings(names)
+	// A calc operand renders its field, so it names a level exactly as a token does.
+	for _, name := range calcOperands(format) {
+		if _, isBound := bound[name]; isBound {
+			names = append(names, reader{name, fmt.Sprintf("calc operand %q", name)})
+		}
+	}
+	sort.Slice(names, func(i, j int) bool { return names[i].name < names[j].name })
 	for i, level := range names {
 		for _, path := range names[i+1:] {
-			if strings.HasPrefix(path, level+".") {
-				return fmt.Errorf("token {%s} renders a level that {%s} reads a path into; name the fields you want instead", level, path)
+			if strings.HasPrefix(path.name, level.name+".") {
+				return fmt.Errorf("%s renders a level that {%s} reads a path into; name the fields you want instead", level.label, path.name)
 			}
 		}
 	}
 	return nil
 }
+
+// reader is one way a format reaches a bound field: the name it reads, and how to
+// name that spelling in an error.
+type reader struct{ name, label string }
 
 // checkSegments rejects an unfinished path: "{a.}", "{.b}" and "{a..b}" each have
 // a segment naming nothing. A field really named "" would otherwise make them
@@ -282,10 +292,10 @@ type op struct {
 // so every token reading one sees the same row (see expand). bound is nil when the
 // format takes no path, so data that uses none carries no render-time cost.
 // Call checkTokens first: it is what proves the scan and every token are valid.
-func compileOps(format string) ([]op, int, map[string]bool) {
+func compileOps(format string) ([]op, int, map[string]string) {
 	var ops []op
 	var lit strings.Builder
-	var bound map[string]bool
+	var bound map[string]string
 	grow := 0
 	flush := func() {
 		if lit.Len() > 0 {
@@ -311,9 +321,11 @@ func compileOps(format string) ([]op, int, map[string]bool) {
 				for _, a := range arms {
 					if len(a.tail) > 0 {
 						if bound == nil {
-							bound = map[string]bool{}
+							bound = map[string]string{}
 						}
-						bound[a.key] = true
+						if _, named := bound[a.key]; !named {
+							bound[a.key] = a.name // the first path reading it, for error messages
+						}
 					}
 				}
 				ops = append(ops, op{kind: 'f', arms: arms})
