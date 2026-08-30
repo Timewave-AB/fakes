@@ -70,6 +70,74 @@ func TestRenderingALevelAndReadingIntoItIsRejected(t *testing.T) {
 	}
 }
 
+func TestCalcOperandNamingABoundLevelIsRejected(t *testing.T) {
+	// A calc operand renders its field, so naming a bound level in one is the same
+	// overlap as a bare token: {calc(item * 1)} renders what {item.price} reads a
+	// path into, and the two disagree.
+	_, err := New([]string{writeData(t, map[string]string{
+		"cat": `{"format":"{item.price}|{calc(item * 1)}","item":[` +
+			`{"format":"{price}","price":"10"},{"format":"{price}","price":"20"}]}`,
+	})})
+	if err == nil || !strings.Contains(err.Error(), "reads a path into") {
+		t.Fatalf("New = %v, want the calc operand rejected as an overlap", err)
+	}
+	// Arithmetic over fields no path names is untouched.
+	if _, err := New([]string{writeData(t, map[string]string{
+		"cat": `{"format":"{net} x {qty} = {calc(net * qty, 2)}","net":["19.99"],"qty":["3"]}`,
+	})}); err != nil {
+		t.Errorf("New = %v, want plain arithmetic accepted", err)
+	}
+}
+
+func TestReferenceNamingABoundLevelIsRejected(t *testing.T) {
+	// A reference can name a bound level from the data root, which renders it
+	// afresh beside the path that reads its held draw — the same overlap by
+	// another spelling.
+	_, err := New([]string{writeData(t, map[string]string{
+		"cat": `{"format":"{p.first}|{..cat.p}","p":[{"format":"{first}","first":["Anna","Bo"]}]}`,
+	})})
+	if err == nil || !strings.Contains(err.Error(), "reads a path into") {
+		t.Fatalf("New = %v, want the reference rejected as an overlap", err)
+	}
+}
+
+func TestNestedChoiceDrawsOneVariant(t *testing.T) {
+	// A choice item may itself be a choice, so drawing a bound head unwraps until
+	// it reaches a value. Stopping at one level leaves a choice where the walk
+	// expects a template.
+	f := engine(21)
+	seen := map[string]bool{}
+	for i := 0; i < 200; i++ {
+		seen[mustRender(t, f, `{"format":"{p.x}","p":[[{"format":"{x}","x":"1"}],[{"format":"{x}","x":"2"}]]}`)] = true
+	}
+	if !seen["1"] || !seen["2"] || len(seen) != 2 {
+		t.Fatalf("200 draws produced %v, want 1 and 2", seen)
+	}
+}
+
+func TestRepeatingLevelIsNamedInTheError(t *testing.T) {
+	// The level carrying the repeat is the one to fix, so the error names it
+	// rather than the head the path started from.
+	_, err := New([]string{writeData(t, map[string]string{
+		"cat": `{"format":"[{p.a.b}]","p":{"format":"{a}","a":{"format":"{b}","repeat":3,"separator":",","b":["z"]}}}`,
+	})})
+	if err == nil || !strings.Contains(err.Error(), `"p.a"`) {
+		t.Fatalf("New = %v, want it to name the level p.a that carries the repeat", err)
+	}
+}
+
+func TestPathIntoARepeatingLevelBehindAChoiceIsRejected(t *testing.T) {
+	// A choice of rows is the shape this feature is for, so the repeat rule has to
+	// reach inside one — otherwise the direct spelling is a load error and the same
+	// mistake behind a choice silently drops the repeat.
+	_, err := New([]string{writeData(t, map[string]string{
+		"cat": `{"format":"[{p.a}]","p":[{"format":"{a}","repeat":3,"separator":",","a":["x"]},{"format":"{a}","a":["y"]}]}`,
+	})})
+	if err == nil || !strings.Contains(err.Error(), "repeat") {
+		t.Fatalf("New = %v, want the repeat behind a choice rejected", err)
+	}
+}
+
 func TestPathIntoARepeatingLevelIsRejected(t *testing.T) {
 	// A path reads one level's draw, so it can never apply that level's repeat.
 	// The engine rejects options that cannot take effect, and this is one.
