@@ -60,8 +60,8 @@ func eachToken(format string, fn func(ftoken) error) error {
 
 // builtin is a format-string function invoked as {name(args)}. It receives the
 // session (its rng, and the {seq()} counters), the output emitted so far in the
-// current expansion (for derivations such as a checksum over preceding digits),
-// the sibling fields (only calc reads them, to render its operands), and its args.
+// current expansion (for derivations such as a checksum over preceding digits), and
+// the values of the operands it named (only calc names any).
 // Almost all are pure over (rng, emitted, args) — no wall-clock, no crypto/rand —
 // so seeding stays reproducible; a time-based id derives its time from the rng.
 // seq is the one exception: it advances per-session counter state, which is itself
@@ -183,7 +183,7 @@ func checkNoRepeatedArm(body string, names []string) error {
 
 // fieldTokens returns the field and reference names a format renders via {name}
 // or {a|..b} tokens (function tokens, which carry no field edges, are excluded).
-// These are exactly the child nodes expand's resolve recurses into.
+// These are exactly the child nodes expand recurses into, through readField.
 func fieldTokens(format string) []string {
 	var names []string
 	_ = eachToken(format, func(t ftoken) error {
@@ -303,8 +303,10 @@ func splitArms(body string) []arm {
 	return arms
 }
 
-// callFn is a builtin bound to one call site: its args already parsed.
-type callFn func(s *session, emitted string, fields map[string]node) string
+// callFn is a builtin bound to one call site: its args already parsed. It reads the
+// output emitted so far in the current expansion (a derivation's payload) and the
+// values of the operands it named, which expand read for it.
+type callFn func(s *session, emitted string, operands []string) string
 
 // op is one compiled unit of a format string: a literal run, a class char, a field
 // alternation, or a builtin already bound to its args. compile builds these so
@@ -315,19 +317,32 @@ type op struct {
 	r    rune   // kind 'c'
 	arms []arm  // kind 'f': the '|' alternatives, split into key and path once
 	call callFn
+	// operands names the sibling fields a {calc()} reads, in the order its
+	// expression first names them. expand reads them before the call, so the
+	// evaluator never touches the node tree. nil for every other builtin.
+	operands []string
 }
 
 // compileOps turns a format string into ops, and returns the smallest output it can
 // produce (literals plus one byte per class char) to size the render buffer, plus
-// the fields the format addresses by dotted path — each drawn once per expansion,
-// so every token reading one sees the same row (see expand). bound is nil when the
-// format takes no path, so data that uses none carries no render-time cost.
-// Call checkTokens first: it is what proves the scan and every token are valid.
-func compileOps(format string) ([]op, int, map[string]string) {
+// two sets. bound is the levels the format addresses by dotted path, each mapped to
+// the first path reading it, which is what the overlap fences name. held is every
+// name drawn once per expansion — those levels, plus the siblings a {calc()} reads,
+// so an operand shown is the operand computed. Both are nil when the format needs
+// neither, so data that uses neither carries no render-time cost. Call checkTokens
+// first: it is what proves the scan and every token are valid.
+func compileOps(format string) ([]op, int, map[string]string, map[string]bool) {
 	var ops []op
 	var lit strings.Builder
 	var bound map[string]string
+	var held map[string]bool
 	grow := 0
+	hold := func(name string) {
+		if held == nil {
+			held = map[string]bool{}
+		}
+		held[name] = true
+	}
 	flush := func() {
 		if lit.Len() > 0 {
 			grow += lit.Len()
@@ -346,7 +361,11 @@ func compileOps(format string) ([]op, int, map[string]string) {
 		case 'b':
 			flush()
 			if name, args, ok := funcCall(t.body); ok {
-				ops = append(ops, op{kind: 'b', call: builtins[name].prep(args)})
+				operands := calcTokenOperands(t.body)
+				for _, operand := range operands {
+					hold(operand) // a calc renders its operand, so the expansion holds that draw
+				}
+				ops = append(ops, op{kind: 'b', call: builtins[name].prep(args), operands: operands})
 			} else {
 				arms := splitArms(t.body)
 				for _, a := range arms {
@@ -357,6 +376,7 @@ func compileOps(format string) ([]op, int, map[string]string) {
 						if _, named := bound[a.key]; !named {
 							bound[a.key] = a.name // the first path reading it, for error messages
 						}
+						hold(a.key)
 					}
 				}
 				ops = append(ops, op{kind: 'f', arms: arms})
@@ -365,5 +385,5 @@ func compileOps(format string) ([]op, int, map[string]string) {
 		return nil
 	})
 	flush()
-	return ops, grow, bound
+	return ops, grow, bound, held
 }

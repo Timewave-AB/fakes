@@ -137,13 +137,14 @@ func classChar(s *session, c rune) byte {
 func expand(s *session, t *template) string {
 	var b strings.Builder
 	b.Grow(t.grow)
-	// One draw per bound head, held for this expansion only: a nested template and
-	// each repeat iteration get their own, since each is its own expansion.
-	var bound *draws
-	if len(t.bound) > 0 {
-		bound = &draws{
-			variant: make(map[string]node, len(t.bound)),
-			value:   make(map[string]string, len(t.bound)),
+	// One draw per held name, for this expansion only: a nested template and each
+	// repeat iteration get their own, since each is its own expansion. held stays a
+	// local: nothing hands it to a builtin, so it and its maps never leave the stack.
+	var held *draws
+	if len(t.held) > 0 {
+		held = &draws{
+			variant: make(map[string]node, len(t.held)),
+			value:   make(map[string]string, len(t.held)),
 		}
 	}
 	for i := range t.ops {
@@ -154,57 +155,66 @@ func expand(s *session, t *template) string {
 		case 'c':
 			b.WriteByte(classChar(s, o.r))
 		case 'f':
-			b.WriteString(resolve(s, o.arms, t, bound))
+			b.WriteString(readField(s, t, held, o.arms[s.IntN(len(o.arms))]))
 		case 'b':
-			b.WriteString(o.call(s, b.String(), t.fields)) // b.String() is the output so far
+			// A calc's operands are read here, in the order its expression first
+			// names them, so the value it computes is the value the format showed.
+			var operands []string
+			if len(o.operands) > 0 {
+				operands = make([]string, len(o.operands))
+				for j, name := range o.operands {
+					operands[j] = readField(s, t, held, arm{name: name, key: name})
+				}
+			}
+			b.WriteString(o.call(s, b.String(), operands)) // b.String() is the output so far
 		}
 	}
 	return b.String()
 }
 
-// draws is what an expansion has already drawn for its bound heads: the variant
-// each head was drawn as, so every path under it reads one row, and the value each
-// path read, so the same path read twice reads one value.
+// draws is what an expansion has already drawn for its held names: the variant each
+// was drawn as, so every path under it reads one row, and the value each read, so
+// the same name read twice reads one value.
 type draws struct {
 	variant map[string]node
 	value   map[string]string
 }
 
-// resolve renders one field alternation: the '|' alternatives, one picked at
-// random. An arm's key is a sibling field or a {..path} reference, which linkRefs
-// bound into fields too. A field the format addresses by dotted path is bound: it
-// is drawn once for the expansion, so {place.postal-code} and {place.locality}
-// read one row and either read twice gives one value. checkTokens, checkPath and
-// linkRefs prove every step, so this cannot fail.
-func resolve(s *session, arms []arm, t *template, bound *draws) string {
-	a := arms[s.IntN(len(arms))]
-	if _, isBound := t.bound[a.key]; !isBound {
+// readField renders one arm of a token. An arm's key is a sibling field or a
+// {..path} reference, which linkRefs bound into fields too. A name the expansion
+// holds — a level some token addresses by dotted path, or a sibling a {calc()}
+// reads — is drawn once and kept, so {place.postal-code} and {place.locality} read
+// one row, either read twice gives one value, and a shown operand is the operand
+// computed. Every other name is drawn afresh, so {word} {word} still draws twice.
+// checkTokens, checkPath and linkRefs prove every step, so this cannot fail.
+func readField(s *session, t *template, held *draws, a arm) string {
+	if !t.held[a.key] {
 		return render(s, t.fields[a.key])
 	}
-	if v, read := bound.value[a.name]; read {
+	if v, read := held.value[a.name]; read {
 		return v
 	}
-	n, drew := bound.variant[a.key]
+	n, drew := held.variant[a.key]
 	if !drew {
 		n = drawn(s, t.fields[a.key])
-		bound.variant[a.key] = n
+		held.variant[a.key] = n
 	}
 	// Hold the draw at every level passed through, so two paths sharing a prefix
 	// share it.
 	for i, seg := range a.tail {
 		if i < len(a.steps) {
-			held, drew := bound.variant[a.steps[i]]
+			step, drew := held.variant[a.steps[i]]
 			if !drew {
-				held = drawn(s, child(n, seg))
-				bound.variant[a.steps[i]] = held
+				step = drawn(s, child(n, seg))
+				held.variant[a.steps[i]] = step
 			}
-			n = held
+			n = step
 			continue
 		}
 		n = child(n, seg)
 	}
 	v := render(s, n)
-	bound.value[a.name] = v
+	held.value[a.name] = v
 	return v
 }
 

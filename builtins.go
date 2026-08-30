@@ -31,35 +31,35 @@ var builtins = map[string]builtin{
 	"ulid":  {arity: 0, prep: generate(ulid)},
 	"nanoid": {arity: 1, check: posIntArg, prep: func(a []string) callFn {
 		n := atoi(a[0])
-		return func(s *session, _ string, _ map[string]node) string { return nanoid(s, n) }
+		return func(s *session, _ string, _ []string) string { return nanoid(s, n) }
 	}},
 	"hex": {arity: 1, check: posIntArg, prep: func(a []string) callFn {
 		n := atoi(a[0])
-		return func(s *session, _ string, _ map[string]node) string { return randHex(s, n) }
+		return func(s *session, _ string, _ []string) string { return randHex(s, n) }
 	}},
 	"base64": {arity: 1, check: posIntArg, prep: func(a []string) callFn {
 		n := atoi(a[0])
-		return func(s *session, _ string, _ map[string]node) string {
+		return func(s *session, _ string, _ []string) string {
 			return base64.StdEncoding.EncodeToString(randBytes(s, n))
 		}
 	}},
 	"int": {arity: 2, check: intRangeArgs, prep: func(a []string) callFn {
 		lo, span := atoi(a[0]), atoi(a[1])-atoi(a[0])+1
-		return func(s *session, _ string, _ map[string]node) string { return strconv.Itoa(lo + s.IntN(span)) }
+		return func(s *session, _ string, _ []string) string { return strconv.Itoa(lo + s.IntN(span)) }
 	}},
 	"float": {arity: 3, check: floatArgs, prep: func(a []string) callFn {
 		lo, _ := strconv.ParseFloat(a[0], 64)
 		hi, _ := strconv.ParseFloat(a[1], 64)
 		dp := atoi(a[2])
-		return func(s *session, _ string, _ map[string]node) string {
+		return func(s *session, _ string, _ []string) string {
 			return strconv.FormatFloat(lo+s.Float64()*(hi-lo), 'f', dp, 64)
 		}
 	}},
 	"iban": {arity: 1, check: ibanArg, prep: func(a []string) callFn {
 		cc := a[0]
-		return func(s *session, _ string, _ map[string]node) string { return iban(s, cc) }
+		return func(s *session, _ string, _ []string) string { return iban(s, cc) }
 	}},
-	// calc is the one builtin that reads the sibling fields (to render its operands);
+	// calc is the one builtin that names operands (expand reads them for it);
 	// every other ignores them. 1 or 2 args: the expression and an optional decimals.
 	"calc": {arity: -1, check: checkCalc, prep: calcPrep},
 	// seq is the one stateful builtin: a per-session counter from 1, advancing on
@@ -70,7 +70,7 @@ var builtins = map[string]builtin{
 		if len(a) == 1 {
 			key = a[0]
 		}
-		return func(s *session, _ string, _ map[string]node) string {
+		return func(s *session, _ string, _ []string) string {
 			return strconv.FormatUint(s.next(key), 10)
 		}
 	}},
@@ -81,13 +81,13 @@ var builtins = map[string]builtin{
 // lifts that one function into the prep every registry entry supplies.
 func derive(f func(emitted string) string) func([]string) callFn {
 	return func([]string) callFn {
-		return func(_ *session, emitted string, _ map[string]node) string { return f(emitted) }
+		return func(_ *session, emitted string, _ []string) string { return f(emitted) }
 	}
 }
 
 func generate(f func(rng) string) func([]string) callFn {
 	return func([]string) callFn {
-		return func(s *session, _ string, _ map[string]node) string { return f(s) }
+		return func(s *session, _ string, _ []string) string { return f(s) }
 	}
 }
 
