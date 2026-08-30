@@ -95,11 +95,34 @@ func TestNewErrors(t *testing.T) {
 		},
 		"category name with a dot": {
 			map[string]string{"a.b": `["1"]`},
-			`category "a.b" contains a dot`,
+			`category "a.b" contains "."`,
 		},
 		"folder name with a dot": {
 			map[string]string{"a.b/cat": `["1"]`},
-			`/a.b: folder "a.b" contains a dot`,
+			`/a.b: folder "a.b" contains "."`,
+		},
+		// The token grammar reserves three more characters. A name carrying one
+		// still resolves by dot path, but no format can name it, so it is rejected
+		// where it is authored rather than at the token that cannot reach it.
+		"field name with a pipe": {
+			map[string]string{"a": `{"format":"{x}","x":["1"],"b|c":["2"]}`},
+			`field "b|c" contains "|"`,
+		},
+		"field name with a paren": {
+			map[string]string{"a": `{"format":"{x}","x":["1"],"b(c":["2"]}`},
+			`field "b(c" contains "("`,
+		},
+		"field name with a closing brace": {
+			map[string]string{"a": `{"format":"{x}","x":["1"],"b}c":["2"]}`},
+			`field "b}c" contains "}"`,
+		},
+		"category name with a pipe": {
+			map[string]string{"a|b": `["1"]`},
+			`category "a|b" contains "|"`,
+		},
+		"folder name with a paren": {
+			map[string]string{"a(b/cat": `["1"]`},
+			`folder "a(b" contains "("`,
 		},
 	}
 	for name, c := range rejected {
@@ -123,7 +146,7 @@ func TestNewErrors(t *testing.T) {
 		"hyphenated field":           {map[string]string{"a": `{"format":"{x-y}","x-y":["1"]}`}, "a.x-y", "1"},
 		"category named Format":      {map[string]string{"Format": `["1"]`}, "Format", "1"},
 		"folder named Repeat":        {map[string]string{"Repeat/cat": `["1"]`}, "Repeat.cat", "1"},
-		"field with a paren":         {map[string]string{"a": `{"format":"{x}","x":["1"],"b(c":["2"]}`}, "a.b(c", "2"},
+		"field with a closing paren": {map[string]string{"a": `{"format":"{b)c}","b)c":["2"]}`}, "a", "2"},
 		"repeat without a separator": {map[string]string{"a": `{"format":"{x}","repeat":3,"x":["1"]}`}, "a", "111"},
 	}
 	for name, c := range accepted {
@@ -205,7 +228,7 @@ func TestPathKeyIsUnambiguous(t *testing.T) {
 		"cat": `[{"format":"{a.b}","a.b":["1"]},{"format":"{a}","a":{"format":"{b}","b":["2"]}}]`,
 	})
 	_, err := New([]string{dir})
-	if err == nil || !strings.Contains(err.Error(), `field "a.b" contains a dot`) {
+	if err == nil || !strings.Contains(err.Error(), `field "a.b" contains "."`) {
 		t.Fatalf("New = %v, want the dotted field name rejected", err)
 	}
 	// The same data without the dotted key is fine, and the path resolves.

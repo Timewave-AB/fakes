@@ -405,7 +405,7 @@ func TestDottedTokenErrors(t *testing.T) {
 		},
 		"dotted field key": {
 			`{"format":"[{a.b}]","a.b":["V"]}`,
-			`contains a dot`,
+			`contains "."`,
 		},
 	}
 	for name, c := range rejected {
