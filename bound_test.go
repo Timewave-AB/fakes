@@ -1,6 +1,7 @@
 package fakes
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -114,6 +115,61 @@ func TestReferenceNamingABoundLevelIsRejected(t *testing.T) {
 		"surname": `["Eriksson","Lindqvist"]`,
 	})}); err != nil {
 		t.Errorf("New = %v, want a reference outside the bound level accepted", err)
+	}
+}
+
+func TestCycleReachedOnlyByAPathTokenIsRejected(t *testing.T) {
+	// A path token renders what it lands on, not the level it started from, so the
+	// cycle walk has to follow it there. A head whose own format names nothing
+	// would otherwise hide the cycle until render, where it is fatal.
+	_, err := New([]string{writeData(t, map[string]string{
+		"a": `{"format":"{p.x}","p":{"format":"static","x":{"format":"{..a}"}}}`,
+	})})
+	if err == nil || !strings.Contains(err.Error(), "reference cycle") {
+		t.Fatalf("New = %v, want the cycle through {p.x} rejected", err)
+	}
+}
+
+func TestALevelRenderedOnlyByAPathTokenIsHeld(t *testing.T) {
+	// {p.a} renders q, so it is a route to the level {q.x} holds — even though p's
+	// own format names nothing.
+	_, err := New([]string{writeData(t, map[string]string{
+		"thing": `{"format":"{p.a} {q.x}","p":{"format":"static","a":{"format":"{..thing.q}"}},` +
+			`"q":{"format":"{x}","x":["1","2"]}}`,
+	})})
+	if err == nil || !strings.Contains(err.Error(), "reads a path into") {
+		t.Fatalf("New = %v, want the second route to q rejected", err)
+	}
+}
+
+func TestALevelAPathNeverRendersIsAccepted(t *testing.T) {
+	// A path token does not expand its head's format, so a reference sitting in
+	// that format is not a second route to anything: it is never rendered by the
+	// path at all. Both orders must load.
+	accepted := map[string]string{
+		"reference in the head's own format": `{"format":"{p.first} {q.a}",` +
+			`"p":{"format":"{first} {..thing.q}","first":["A","B"]},"q":{"format":"{a}","a":["1","2"]}}`,
+		"the mirror shape": `{"format":"{p.first} {q.a}",` +
+			`"p":{"format":"{first}","first":["A","B"]},"q":{"format":"{a} {..thing.p}","a":["1","2"]}}`,
+	}
+	for name, file := range accepted {
+		if _, err := New([]string{writeData(t, map[string]string{"thing": file})}); err != nil {
+			t.Errorf("%s: New = %v, want it accepted", name, err)
+		}
+	}
+}
+
+func TestADeepDiamondChainLoads(t *testing.T) {
+	// A diamond chain is 2^n routes through n nodes. The search past a bound level
+	// must walk each node once, not once per route, or a deep chain never loads.
+	files := map[string]string{"l0": `["x"]`}
+	for i := 1; i <= 30; i++ {
+		files[fmt.Sprintf("l%d", i)] = fmt.Sprintf(
+			`{"format":"{a}{b}","a":{"format":"{..l%d}"},"b":{"format":"{..l%d}"}}`, i-1, i-1)
+	}
+	files["thing"] = `{"format":"{p.first} {..l30}","p":{"format":"x","first":["A","B"]}}`
+	if _, err := New([]string{writeData(t, files)}); err != nil {
+		t.Fatalf("New = %v, want a deep diamond chain to load", err)
 	}
 }
 
