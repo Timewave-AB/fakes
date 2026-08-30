@@ -2,6 +2,7 @@ package fakes
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -178,15 +179,12 @@ func fieldTokens(format string) []string {
 // arm is one alternative of a {a|b} token, split into the key naming the node in
 // a template's fields (a sibling field, or the whole "..path" string a reference is
 // bound under) and the tail of a dotted path into it. A non-empty tail is what makes
-// the arm a bound draw: its head is drawn once per expansion (see boundHeads).
+// the arm a bound draw: its head is drawn once per expansion (see compileOps).
 type arm struct {
-	name string // as written, and the key a bound draw's value is held under
-	key  string
-	tail []string
-	// steps holds the key for each segment the walk descends to, so every level a
-	// path passes through is held — including its last, which another path may
-	// name in full ({p.addr} beside {p.addr.city}).
-	steps []string
+	name  string // as written, and the key a bound draw's value is held under
+	key   string
+	tail  []string
+	steps []string // key per level passed through; the head and leaf hold their own
 }
 
 // splitArm splits one token alternative into key and tail. A reference keeps its
@@ -200,11 +198,40 @@ func splitArm(name string) arm {
 		return arm{name: name, key: name}
 	}
 	segs := strings.Split(tail, ".")
-	steps := make([]string, len(segs))
-	for i := range segs {
-		steps[i] = head + "." + strings.Join(segs[:i+1], ".")
+	var steps []string
+	for i := 0; i < len(segs)-1; i++ { // every level except the leaf's own
+		steps = append(steps, head+"."+strings.Join(segs[:i+1], "."))
 	}
 	return arm{name: name, key: head, tail: segs, steps: steps}
+}
+
+// checkNoOverlap rejects a format that both renders a level and reads a path into
+// it — {p} beside {p.first}, or {p.addr} beside {p.addr.city}. The two spell one
+// draw two ways: the path reads the level's held draw, while rendering the level
+// expands it afresh, so their values disagree. One spelling, so there is nothing
+// to get wrong. Names are compared in sorted order, so which pair is reported
+// does not depend on where the tokens sit.
+func checkNoOverlap(ops []op, bound map[string]bool) error {
+	var names []string
+	for i := range ops {
+		if ops[i].kind != 'f' {
+			continue
+		}
+		for _, a := range ops[i].arms {
+			if bound[a.key] {
+				names = append(names, a.name)
+			}
+		}
+	}
+	sort.Strings(names)
+	for i, level := range names {
+		for _, path := range names[i+1:] {
+			if strings.HasPrefix(path, level+".") {
+				return fmt.Errorf("token {%s} renders a level that {%s} reads a path into; name the fields you want instead", level, path)
+			}
+		}
+	}
+	return nil
 }
 
 // checkSegments rejects an unfinished path: "{a.}", "{.b}" and "{a..b}" each have

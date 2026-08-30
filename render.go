@@ -189,31 +189,41 @@ func resolve(s *session, arms []arm, t *template, bound *draws) string {
 		n = drawn(s, t.fields[a.key])
 		bound.variant[a.key] = n
 	}
-	// Walk the tail, holding the draw at every level the path passes through, so
-	// two paths sharing a prefix share every choice along it, not just the head.
-	// The last level is held too: another token may name it in full.
+	// Hold the draw at every level passed through, so two paths sharing a prefix
+	// share it; the leaf needs no hold, as checkNoOverlap means no other token
+	// can name it.
 	for i, seg := range a.tail {
-		held, drew := bound.variant[a.steps[i]]
-		if !drew {
-			held = drawn(s, child(n, seg))
-			bound.variant[a.steps[i]] = held
+		if i < len(a.steps) {
+			held, drew := bound.variant[a.steps[i]]
+			if !drew {
+				held = drawn(s, child(n, seg))
+				bound.variant[a.steps[i]] = held
+			}
+			n = held
+			continue
 		}
-		n = held
+		n = child(n, seg)
 	}
 	v := render(s, n)
 	bound.value[a.name] = v
 	return v
 }
 
-// child is the node one path segment names below an already-drawn node. checkPath
-// proved the segment exists and that drawn leaves a template here, so this cannot
-// fail.
+// child is the node one path segment names below an already-drawn node. It holds
+// while checkPath and the set a choice shares (see sharedPaths) agree with this
+// walk: both prove the segment exists and that drawn leaves a template here. Each
+// way that can break panics naming the segment, so a slip in that agreement
+// reports where it happened rather than surfacing a nil node a level later.
 func child(n node, seg string) node {
 	t, ok := n.(*template)
 	if !ok {
 		panic(fmt.Sprintf("fakes: %q under %T, which carries no fields", seg, n))
 	}
-	return t.fields[seg]
+	c, ok := t.fields[seg]
+	if !ok {
+		panic(fmt.Sprintf("fakes: no field %q under a drawn level", seg))
+	}
+	return c
 }
 
 // drawn resolves a choice to one variant, so a bound head is a concrete node the
