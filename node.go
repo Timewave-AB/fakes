@@ -148,8 +148,8 @@ func compileTemplate(m map[string]any) (node, error) {
 		if isRef(k) {
 			return nil, fmt.Errorf("field %q starts with %q, which is reserved for {..path} bindings", k, refPrefix)
 		}
-		if strings.Contains(k, ".") {
-			return nil, fmt.Errorf("field %q contains a dot, which separates the segments of a path into a field", k)
+		if err := checkName(k); err != nil {
+			return nil, fmt.Errorf("field %w", err)
 		}
 		n, err := compile(m[k])
 		if err != nil {
@@ -250,12 +250,24 @@ func weightOf(raw any) (float64, error) {
 	return w, nil
 }
 
-// checkName rejects a category or folder name no dot path can reach. A dot separates
-// path segments, so such a name is unaddressable by every route — unlike a field,
-// which its parent's format still reaches by token.
+// reservedInName is what a category, folder or field name may not contain: a dot
+// separates the segments of a path, '|' the arms of a token, '(' opens a function
+// call and '}' ends the token. A name carrying one is reachable by no format, so it
+// is rejected where it is authored rather than at the token that cannot reach it.
+// ')' is absent deliberately — it is spellable on its own, so it stays legal.
+const reservedInName = ".|(}"
+
+// reservedList is reservedInName spelled out for an error message, so the two
+// cannot drift apart.
+var reservedList = strings.Join(strings.Split(reservedInName, ""), " ")
+
+// checkName rejects a name the dot path and {token} grammars cannot spell. Both a
+// category or folder and a field go through it, so there is one answer to what a
+// name may contain.
 func checkName(name string) error {
-	if strings.Contains(name, ".") {
-		return fmt.Errorf("%q contains a dot, which a dot path cannot reach", name)
+	if i := strings.IndexAny(name, reservedInName); i >= 0 {
+		return fmt.Errorf("%q contains %q; a name may not use %s, which the dot path and {token} grammars reserve",
+			name, name[i:i+1], reservedList)
 	}
 	return nil
 }
