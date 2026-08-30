@@ -1,6 +1,11 @@
 package fakes
 
-import "testing"
+import (
+	"fmt"
+	"math"
+	"strings"
+	"testing"
+)
 
 // TestCalcArithmetic pins the operators, precedence, parentheses and unary minus
 // over number literals.
@@ -95,5 +100,108 @@ func TestCalcTokenOperandsReadsOnlyACalc(t *testing.T) {
 	}
 	if got := calcTokenOperands("calc(net * qty)"); len(got) != 2 {
 		t.Errorf("calcTokenOperands(calc(net * qty)) = %v, want both operands", got)
+	}
+}
+
+// --- one draw, one value: a calc operand reads the expansion's draw ---
+
+// TestCalcOperandReadsTheExpansionsDraw pins the one-draw rule for a calc operand.
+// A field the format renders and a calc reads is drawn once per expansion, so the
+// operand shown is the operand computed — the correlation the dotted-path rule
+// already gives a level (see bound_test.go), applied to a plain sibling.
+func TestCalcOperandReadsTheExpansionsDraw(t *testing.T) {
+	dir := writeData(t, map[string]string{
+		"inv": `{"format":"{net} x {qty} = {calc(net * qty, 2)}","net":["19.99","5.00","100.00"],"qty":["2","3","7"]}`,
+	})
+	f := newFakes(t, dir, WithSeed(3))
+	for i := 0; i < 300; i++ {
+		got := fake(t, f, "inv")
+		var net, qty, want float64
+		if _, err := fmt.Sscanf(got, "%g x %g = %g", &net, &qty, &want); err != nil {
+			t.Fatalf("inv = %q, unparseable: %v", got, err)
+		}
+		if math.Abs(net*qty-want) > 1e-9 {
+			t.Fatalf("inv = %q: the shown %g x %g is not the computed %g", got, net, qty, want)
+		}
+	}
+}
+
+// TestCalcOperandSharesOneDraw pins the reach of that hold: the draw belongs to the
+// expansion, not to the calc, so a bare token rendering the same name reads it too.
+func TestCalcOperandSharesOneDraw(t *testing.T) {
+	dir := writeData(t, map[string]string{
+		"same": `{"format":"{w} {w} {calc(w)}","w":["1","2","3","4","5"]}`,
+	})
+	f := newFakes(t, dir, WithSeed(5))
+	for i := 0; i < 200; i++ {
+		got := fake(t, f, "same")
+		if p := strings.Fields(got); len(p) != 3 || p[0] != p[1] || p[0] != p[2] {
+			t.Fatalf("same = %q, want one value three times", got)
+		}
+	}
+}
+
+// TestFieldNoCalcReadsDrawsEachTime guards the boundary: only a name a calc reads is
+// held, so an ordinary {w} {w} still draws twice.
+func TestFieldNoCalcReadsDrawsEachTime(t *testing.T) {
+	dir := writeData(t, map[string]string{"two": `{"format":"{w} {w}","w":["1","2","3","4","5"]}`})
+	f := newFakes(t, dir, WithSeed(5))
+	for i := 0; i < 200; i++ {
+		if p := strings.Fields(fake(t, f, "two")); p[0] != p[1] {
+			return
+		}
+	}
+	t.Fatal("{w} {w} never differed in 200 draws, want two independent draws")
+}
+
+// TestCalcHoldIsPerExpansion pins the scope of the hold: each repeat iteration is
+// its own expansion, so it draws again while staying self-consistent.
+func TestCalcHoldIsPerExpansion(t *testing.T) {
+	dir := writeData(t, map[string]string{
+		"rep": `{"format":"{n}={calc(n * 1)}","repeat":8,"separator":" ","n":["2","3","4","5","6","7","8","9"]}`,
+	})
+	f := newFakes(t, dir, WithSeed(11))
+	varied := false
+	for i := 0; i < 50; i++ {
+		got := fake(t, f, "rep")
+		seen := map[string]bool{}
+		for _, pair := range strings.Fields(got) {
+			shown, computed, ok := strings.Cut(pair, "=")
+			if !ok || shown != computed {
+				t.Fatalf("rep = %q: %q disagrees within one iteration", got, pair)
+			}
+			seen[shown] = true
+		}
+		varied = varied || len(seen) > 1
+	}
+	if !varied {
+		t.Fatal("every repeat iteration drew alike, want an independent draw each")
+	}
+}
+
+// TestCalcHoldIsPerTemplate pins that a nested template holds its own: the inner
+// {v} and its calc agree with each other, not with the outer pair.
+func TestCalcHoldIsPerTemplate(t *testing.T) {
+	dir := writeData(t, map[string]string{
+		"nest": `{"format":"{v}={calc(v * 1)} {inner}","v":["2","3","4","5","6","7","8","9"],
+			"inner":{"format":"{v}={calc(v * 1)}","v":["2","3","4","5","6","7","8","9"]}}`,
+	})
+	f := newFakes(t, dir, WithSeed(13))
+	differed := false
+	for i := 0; i < 200; i++ {
+		got := fake(t, f, "nest")
+		outer, inner, ok := strings.Cut(got, " ")
+		if !ok {
+			t.Fatalf("nest = %q, want two pairs", got)
+		}
+		for _, pair := range []string{outer, inner} {
+			if shown, computed, ok := strings.Cut(pair, "="); !ok || shown != computed {
+				t.Fatalf("nest = %q: %q disagrees within its own expansion", got, pair)
+			}
+		}
+		differed = differed || outer != inner
+	}
+	if !differed {
+		t.Fatal("the nested template never differed from its parent, want its own draw")
 	}
 }
