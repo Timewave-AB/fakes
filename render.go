@@ -178,7 +178,7 @@ type draws struct {
 // linkRefs prove every step, so this cannot fail.
 func resolve(s *session, arms []arm, t *template, bound *draws) string {
 	a := arms[s.IntN(len(arms))]
-	if !t.bound[a.key] {
+	if _, isBound := t.bound[a.key]; !isBound {
 		return render(s, t.fields[a.key])
 	}
 	if v, read := bound.value[a.name]; read {
@@ -190,8 +190,9 @@ func resolve(s *session, arms []arm, t *template, bound *draws) string {
 		bound.variant[a.key] = n
 	}
 	// Hold the draw at every level passed through, so two paths sharing a prefix
-	// share it; the leaf needs no hold, as checkNoOverlap means no other token
-	// can name it.
+	// share it. The leaf needs no hold: no other token can name it, since
+	// checkNoOverlap rejects a field or calc spelling and checkNotBound a
+	// reference one.
 	for i, seg := range a.tail {
 		if i < len(a.steps) {
 			held, drew := bound.variant[a.steps[i]]

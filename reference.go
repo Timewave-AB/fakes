@@ -32,10 +32,47 @@ func linkRefs(root map[string]node) error {
 			if err != nil {
 				return fmt.Errorf("%s: reference {%s}: %w", path, name, err)
 			}
+			if err := checkNotBound(t, name, target); err != nil {
+				return fmt.Errorf("%s: %w", path, err)
+			}
 			t.fields[name] = target
 		}
 		return nil
 	})
+}
+
+// checkNotBound rejects a reference that lands on a level this format binds, or
+// anywhere under one. Rendering the target draws it afresh beside the path that
+// reads its held draw, which is the overlap checkNoOverlap rejects between tokens
+// — a reference is one more spelling of it, and the only one that can reach a
+// level from outside the format. Heads are checked in sorted order so which
+// overlap is reported does not vary.
+func checkNotBound(t *template, ref string, target node) error {
+	heads := make([]string, 0, len(t.bound))
+	for head := range t.bound {
+		heads = append(heads, head)
+	}
+	sort.Strings(heads)
+	for _, head := range heads {
+		if reaches(t.fields[head], target) {
+			return fmt.Errorf("reference {%s} renders a level that {%s} reads a path into; name the fields you want instead", ref, t.bound[head])
+		}
+	}
+	return nil
+}
+
+// reaches reports whether want is n or a node contained in it. Containment is the
+// JSON structure, so the walk is over a tree and always terminates.
+func reaches(n, want node) bool {
+	if n == want {
+		return true
+	}
+	for _, c := range contained(n) {
+		if reaches(c.node, want) {
+			return true
+		}
+	}
+	return false
 }
 
 // walkNodes calls fn once per contained node, passing the dot path that reaches it,
