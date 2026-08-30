@@ -96,6 +96,11 @@ func TestReferenceNamingABoundLevelIsRejected(t *testing.T) {
 	rejected := map[string]string{
 		"reference names the head": `{"format":"{p.first}|{..cat.p}","p":[{"format":"{first}","first":["Anna","Bo"]}]}`,
 		"reference names the leaf": `{"format":"{p.addr}|{..cat.p.addr}","p":{"format":"x","addr":["A","B","C","D"]}}`,
+		// The reference need not sit in the format that binds: any field it renders
+		// reaches the level just the same, however deep.
+		"reference from a sibling field": `{"format":"{p.first}|{inner}","p":[` +
+			`{"format":"{first}-{last}","first":"A","last":"1"},{"format":"{first}-{last}","first":"B","last":"2"}],` +
+			`"inner":{"format":"{..cat.p}"}}`,
 	}
 	for name, file := range rejected {
 		_, err := New([]string{writeData(t, map[string]string{"cat": file})})
@@ -109,6 +114,18 @@ func TestReferenceNamingABoundLevelIsRejected(t *testing.T) {
 		"surname": `["Eriksson","Lindqvist"]`,
 	})}); err != nil {
 		t.Errorf("New = %v, want a reference outside the bound level accepted", err)
+	}
+}
+
+func TestReferenceToAMatchingStringIsAccepted(t *testing.T) {
+	// A literal renders one fixed string, so no draw of it can disagree with a
+	// held one. Two unrelated literals that merely spell the same text must not
+	// read as the same node — the trap when comparing a value type.
+	if _, err := New([]string{writeData(t, map[string]string{
+		"cat":   `{"format":"{p.city} {..other.tag}","p":{"format":"{city}","city":"Stockholm"}}`,
+		"other": `{"format":"x","tag":"Stockholm"}`,
+	})}); err != nil {
+		t.Fatalf("New = %v, want a reference to a matching string accepted", err)
 	}
 }
 
