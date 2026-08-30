@@ -143,6 +143,9 @@ func checkTokens(format string, fields map[string]node) error {
 				continue // a root reference; its target is checked at New (see linkRefs)
 			}
 			a := splitArm(name)
+			if err := checkSegments(a); err != nil {
+				return fmt.Errorf("token {%s}: %w", t.body, err)
+			}
 			head, ok := fields[a.key]
 			if !ok {
 				if isOption(a.key) {
@@ -180,9 +183,9 @@ type arm struct {
 	name string // as written, and the key a bound draw's value is held under
 	key  string
 	tail []string
-	// steps holds the key for each segment the walk passes *through* — the path
-	// prefixes below the head and above the leaf. The head is bound under key and
-	// the leaf's value under name, so a one-segment tail needs none of these.
+	// steps holds the key for each segment the walk descends to, so every level a
+	// path passes through is held — including its last, which another path may
+	// name in full ({p.addr} beside {p.addr.city}).
 	steps []string
 }
 
@@ -197,11 +200,29 @@ func splitArm(name string) arm {
 		return arm{name: name, key: name}
 	}
 	segs := strings.Split(tail, ".")
-	var steps []string
-	for i := 0; i < len(segs)-1; i++ { // every prefix except the leaf's own
-		steps = append(steps, head+"."+strings.Join(segs[:i+1], "."))
+	steps := make([]string, len(segs))
+	for i := range segs {
+		steps[i] = head + "." + strings.Join(segs[:i+1], ".")
 	}
 	return arm{name: name, key: head, tail: segs, steps: steps}
+}
+
+// checkSegments rejects an unfinished path: "{a.}", "{.b}" and "{a..b}" each have
+// a segment naming nothing. A field really named "" would otherwise make them
+// resolve, so a typo would read as a path that worked.
+func checkSegments(a arm) error {
+	if len(a.tail) == 0 {
+		return nil
+	}
+	if a.key == "" {
+		return fmt.Errorf("path has an empty segment")
+	}
+	for _, seg := range a.tail {
+		if seg == "" {
+			return fmt.Errorf("path has an empty segment")
+		}
+	}
+	return nil
 }
 
 // splitArms splits a token body's '|' alternatives.

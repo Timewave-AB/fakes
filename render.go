@@ -191,17 +191,14 @@ func resolve(s *session, arms []arm, t *template, bound *draws) string {
 	}
 	// Walk the tail, holding the draw at every level the path passes through, so
 	// two paths sharing a prefix share every choice along it, not just the head.
+	// The last level is held too: another token may name it in full.
 	for i, seg := range a.tail {
-		if i < len(a.steps) {
-			held, drew := bound.variant[a.steps[i]]
-			if !drew {
-				held = drawn(s, child(n, seg))
-				bound.variant[a.steps[i]] = held
-			}
-			n = held
-			continue
+		held, drew := bound.variant[a.steps[i]]
+		if !drew {
+			held = drawn(s, child(n, seg))
+			bound.variant[a.steps[i]] = held
 		}
-		n = child(n, seg)
+		n = held
 	}
 	v := render(s, n)
 	bound.value[a.name] = v
