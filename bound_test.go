@@ -288,6 +288,42 @@ func TestDeepPathsUnderOneHeadStayIndependentWhereTheyDiverge(t *testing.T) {
 	}
 }
 
+func TestAPathAndItsOwnPrefixShareTheDraw(t *testing.T) {
+	// {p.addr} and {p.addr.city} name the same level, so they must read the same
+	// draw of it — a path that is itself the prefix of another is still one draw.
+	f := engine(15)
+	tmpl := `{"format":"{p.addr}|{p.addr.city}","p":[{"format":"{addr}","addr":[
+		{"format":"{city}","city":"Kiruna","zip":"98100"},
+		{"format":"{city}","city":"Malmö","zip":"21100"}]}]}`
+	for i := 0; i < 400; i++ {
+		got := mustRender(t, f, tmpl)
+		parts := strings.Split(got, "|")
+		if parts[0] != parts[1] {
+			t.Fatalf("draw %d = %q, want one draw read by both", i, got)
+		}
+	}
+}
+
+func TestEmptyPathSegmentIsRejected(t *testing.T) {
+	// "{a.}", "{.b}" and "{a..b}" are unfinished paths. A field really named ""
+	// would otherwise make them resolve, which reads as a typo that worked.
+	rejected := map[string]string{
+		"trailing dot": `{"format":"[{a.}]","a":{"format":"x","":["V"]}}`,
+		"leading dot":  `{"format":"[{.b}]","":{"format":"{b}","b":["V"]}}`,
+		"double dot":   `{"format":"[{a..b}]","a":{"format":"x","":{"format":"{b}","b":["V"]}}}`,
+	}
+	for name, file := range rejected {
+		_, err := New([]string{writeData(t, map[string]string{"cat": file})})
+		if err == nil {
+			t.Errorf("%s: New = nil error, want the unfinished path rejected", name)
+			continue
+		}
+		if !strings.Contains(err.Error(), "empty segment") {
+			t.Errorf("%s: New = %v, want it to name the empty segment", name, err)
+		}
+	}
+}
+
 func TestCycleThroughAPathTokenIsRejected(t *testing.T) {
 	// A path token is a render edge like any other, so a cycle routed through one
 	// must be caught at New. Reaching render would be fatal: the recursion never
