@@ -124,6 +124,19 @@ func TestNewErrors(t *testing.T) {
 			map[string]string{"a(b/cat": `["1"]`},
 			`folder "a(b" contains "("`,
 		},
+		// A repeated arm skews an alternation, which weight is the spelling for.
+		"repeated alternation arm": {
+			map[string]string{"a": `{"format":"{x|x}","x":["1"]}`},
+			`arm "x" is repeated`,
+		},
+		"repeated arm among others": {
+			map[string]string{"a": `{"format":"{x|y|x}","x":["1"],"y":["2"]}`},
+			`arm "x" is repeated`,
+		},
+		"repeated path arm": {
+			map[string]string{"a": `{"format":"{p.v|p.v}","p":{"format":"{v}","v":["1"]}}`},
+			`arm "p.v" is repeated`,
+		},
 	}
 	for name, c := range rejected {
 		_, err := New([]string{writeData(t, c.files)})
@@ -148,6 +161,9 @@ func TestNewErrors(t *testing.T) {
 		"folder named Repeat":        {map[string]string{"Repeat/cat": `["1"]`}, "Repeat.cat", "1"},
 		"field with a closing paren": {map[string]string{"a": `{"format":"{b)c}","b)c":["2"]}`}, "a", "2"},
 		"repeat without a separator": {map[string]string{"a": `{"format":"{x}","repeat":3,"x":["1"]}`}, "a", "111"},
+		// One name in two separate tokens is two independent draws, not a repeated
+		// arm; only a repeat within one alternation is rejected.
+		"one name in two tokens": {map[string]string{"a": `{"format":"{x}{x}","x":["1"]}`}, "a", "11"},
 	}
 	for name, c := range accepted {
 		f, err := New([]string{writeData(t, c.files)})
