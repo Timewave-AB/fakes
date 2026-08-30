@@ -47,9 +47,12 @@ type template struct {
 	ops       []op // format compiled once (see compileOps); what expand walks
 	grow      int  // minimum output size, to size the render buffer
 	// bound maps each field the format addresses by dotted path to one path token
-	// reading it: drawn once per expansion (see compileOps and expand), and the
-	// token names the other half of an overlap. nil when the format takes no path.
+	// reading it, which is the half of an overlap the fences name. nil when the
+	// format takes no path.
 	bound map[string]string
+	// held is every name drawn once per expansion: the bound levels above, plus the
+	// siblings a {calc()} reads. nil when the format holds nothing (see expand).
+	held map[string]bool
 }
 
 func (*template) isNode() {}
@@ -160,7 +163,7 @@ func compileTemplate(m map[string]any) (node, error) {
 	if err := checkTokens(format, t.fields); err != nil {
 		return nil, err
 	}
-	t.ops, t.grow, t.bound = compileOps(format)
+	t.ops, t.grow, t.bound, t.held = compileOps(format)
 	if err := checkNoOverlap(format, t.bound); err != nil {
 		return nil, err
 	}

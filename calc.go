@@ -9,42 +9,48 @@ import (
 )
 
 // calc is the {calc(expr[, dp])} token: an arithmetic expression over number
-// literals and sibling-field names (rendered, then parsed as numbers), with
-// + - * /, unary minus and parentheses. It is a registry builtin like any other
-// {name(args)} function — the one whose check and prep read the sibling fields (to
-// render its operands). The value prints in minimal decimal form, or rounded to dp
-// when given. A field that doesn't render to a number becomes NaN, which
-// propagates and prints as "NaN" — visible, never a render error. The expression is
-// parsed once at New into an AST every render shares and none mutates, so render
-// cannot fail and must not carry per-render state.
+// literals and sibling-field names, with + - * /, unary minus and parentheses. It is
+// a registry builtin like any other {name(args)} function — the one that names
+// operands, which expand reads for it (once per expansion, so the value computed is
+// the value the format showed) and hands over as strings. The value prints in
+// minimal decimal form, or rounded to dp when given. An operand that isn't a number
+// becomes NaN, which propagates and prints as "NaN" — visible, never a render error.
+// The expression is parsed once at New into an AST every render shares and none
+// mutates, so render cannot fail and must not carry per-render state.
 
-// calcNode is a parsed expression node.
+// calcNode is a parsed expression node. It evaluates over the operand values expand
+// read, so the evaluator touches neither the rng nor the node tree.
 type calcNode interface {
-	eval(s *session, fields map[string]node) float64
+	eval(operands []string) float64
 }
 
 type calcNum float64 // a number literal
-type calcVar string  // a sibling-field name
+type calcVar string  // a sibling-field name, before indexVars places it
+type calcIdx int     // an operand, by its position in the values expand read
 type calcNeg struct{ x calcNode }
 type calcBin struct { // a + - * / b
 	op   byte
 	l, r calcNode
 }
 
-func (n calcNum) eval(*session, map[string]node) float64 { return float64(n) }
+func (n calcNum) eval([]string) float64 { return float64(n) }
 
-func (n calcVar) eval(s *session, fields map[string]node) float64 {
-	v, err := strconv.ParseFloat(strings.TrimSpace(render(s, fields[string(n)])), 64)
+func (n calcIdx) eval(operands []string) float64 {
+	v, err := strconv.ParseFloat(strings.TrimSpace(operands[n]), 64)
 	if err != nil {
 		return math.NaN() // a non-numeric operand stays visible, never an error
 	}
 	return v
 }
 
-func (n calcNeg) eval(s *session, fields map[string]node) float64 { return -n.x.eval(s, fields) }
+// eval on an unplaced name cannot happen: calcPrep runs indexVars over every
+// expression it compiles, so only a calcIdx reaches a render.
+func (n calcVar) eval([]string) float64 { return math.NaN() }
 
-func (n calcBin) eval(s *session, fields map[string]node) float64 {
-	l, r := n.l.eval(s, fields), n.r.eval(s, fields)
+func (n calcNeg) eval(operands []string) float64 { return -n.x.eval(operands) }
+
+func (n calcBin) eval(operands []string) float64 {
+	l, r := n.l.eval(operands), n.r.eval(operands)
 	switch n.op {
 	case '+':
 		return l + r
@@ -82,17 +88,37 @@ func checkCalc(fields map[string]node, args []string) error {
 	return nil
 }
 
-// calcPrep parses the expression and decimals once, at compile time. checkCalc
-// proved both valid, so neither step here can fail; dp -1 prints the minimal form.
+// calcPrep parses the expression and decimals once, at compile time, and places each
+// operand name at the position expand will read it into. checkCalc proved both args
+// valid, so no step here can fail; dp -1 prints the minimal form.
 func calcPrep(args []string) callFn {
 	expr, _ := parseCalc(args[0])
+	at := make(map[string]int)
+	for i, name := range calcVars(expr) {
+		at[name] = i
+	}
+	placed := indexVars(expr, at)
 	dp := -1
 	if len(args) == 2 {
 		dp = atoi(args[1])
 	}
-	return func(s *session, _ string, fields map[string]node) string {
-		return strconv.FormatFloat(expr.eval(s, fields), 'f', dp, 64)
+	return func(_ *session, _ string, operands []string) string {
+		return strconv.FormatFloat(placed.eval(operands), 'f', dp, 64)
 	}
+}
+
+// indexVars replaces each operand name with its position in the values expand reads.
+// Both sides take that order from calcVars, so they cannot drift.
+func indexVars(n calcNode, at map[string]int) calcNode {
+	switch n := n.(type) {
+	case calcVar:
+		return calcIdx(at[string(n)])
+	case calcNeg:
+		return calcNeg{indexVars(n.x, at)}
+	case calcBin:
+		return calcBin{n.op, indexVars(n.l, at), indexVars(n.r, at)}
+	}
+	return n
 }
 
 // calcOperands lists the sibling-field names every {calc(...)} token in a format
@@ -124,19 +150,29 @@ func calcTokenOperands(body string) []string {
 	return calcVars(expr)
 }
 
-// calcVars lists the field names an expression references, for the existence
-// check in checkCalc.
+// calcVars lists the distinct field names an expression reads, in the order it first
+// names each. That order is the contract between expand, which reads the operands
+// into a slice, and indexVars, which places each name at its position in it.
 func calcVars(n calcNode) []string {
-	switch n := n.(type) {
-	case calcVar:
-		return []string{string(n)}
-	case calcNeg:
-		return calcVars(n.x)
-	case calcBin:
-		return append(calcVars(n.l), calcVars(n.r)...)
-	default:
-		return nil
+	var out []string
+	seen := map[string]bool{}
+	var walk func(calcNode)
+	walk = func(n calcNode) {
+		switch n := n.(type) {
+		case calcVar:
+			if name := string(n); !seen[name] {
+				seen[name] = true
+				out = append(out, name)
+			}
+		case calcNeg:
+			walk(n.x)
+		case calcBin:
+			walk(n.l)
+			walk(n.r)
+		}
 	}
+	walk(n)
+	return out
 }
 
 // calcParser is a recursive-descent parser over the expression runes, threading
