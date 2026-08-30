@@ -59,12 +59,15 @@ func checkBoundLevelsHeld(root map[string]node) error {
 		for _, head := range heads {
 			held := map[node]bool{}
 			cover(t.fields[head], held)
+			// One seen set across the edges: a node that cannot reach the level
+			// cannot reach it by another route either, so it is walked once here.
+			seen := map[node]bool{}
 			for _, e := range renderEdges(t) {
 				if splitArm(e.label).key == head {
 					continue // a path token reading this level, which is the one route allowed
 				}
-				if renders(e.to, held, map[node]bool{}) {
-					return fmt.Errorf("%s: {%s} renders a level that {%s} reads a path into; name the fields you want instead", path, e.label, t.bound[head])
+				if renders(e.to, held, seen) {
+					return fmt.Errorf("%s: {%s} renders %q, which {%s} reads a path into; name the fields you want instead", path, e.label, head, t.bound[head])
 				}
 			}
 		}
@@ -258,17 +261,38 @@ func renderEdges(n node) []renderEdge {
 	case *template:
 		var es []renderEdge
 		for _, name := range append(fieldTokens(n.format), calcOperands(n.format)...) {
-			// A path token renders its head, so the edge is to the head — over-
-			// approximating the sub-field it descends to, which is what keeps the
-			// cycle walk conservative rather than blind.
-			if c, ok := n.fields[splitArm(name).key]; ok {
-				es = append(es, renderEdge{c, name})
+			a := splitArm(name)
+			c, ok := n.fields[a.key]
+			if !ok {
+				continue
+			}
+			for _, leaf := range pathLeaves(c, a.tail) {
+				es = append(es, renderEdge{leaf, name})
 			}
 		}
 		return es
 	default:
 		return nil
 	}
+}
+
+// pathLeaves lists what a token's dotted tail renders. A path draws the levels it
+// passes through but renders only what it lands on, so the leaf is the edge — a
+// bare token, whose tail is empty, lands on the field itself. A choice on the way
+// contributes every variant, since any of them may be the one drawn. checkPath has
+// already proved the tail resolves in every variant, so the walk drops nothing.
+func pathLeaves(n node, tail []string) []node {
+	if len(tail) == 0 {
+		return []node{n}
+	}
+	if c, ok := n.(*choice); ok {
+		var out []node
+		for _, it := range c.items {
+			out = append(out, pathLeaves(it, tail)...)
+		}
+		return out
+	}
+	return pathLeaves(child(n, tail[0]), tail[1:])
 }
 
 // checkNoCycles rejects a reference cycle: a node whose rendering can reach itself

@@ -495,7 +495,7 @@ fakes.go        Fakes, New, List, options, seeding
 node.go         the node model and JSON -> node compilation
 render.go       Fake and the recursive renderer (choices, format strings, paths, bound draws)
 template.go     the {token} grammar: scanning, function and path tokens, validation
-reference.go    {..path} binding across the tree, and cycle detection
+reference.go    {..path} binding across the tree, the render graph, and the walks over it
 builtins.go     the {name()} function registry and its implementations
 calc.go         the {calc()} arithmetic evaluator: parser, eval, validation
 data.go         data loading: folders/files -> namespace tree, multi-path merge
