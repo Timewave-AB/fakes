@@ -214,6 +214,18 @@ func TestASharedNodeIsWalkedOnce(t *testing.T) {
 	}
 }
 
+func TestTheEarlierReaderIsNamed(t *testing.T) {
+	// A token and a calc operand can name one level. The one the format writes
+	// first is the one reported, so the error points at the same place a reader
+	// looking at the format would start.
+	_, err := New([]string{writeData(t, map[string]string{
+		"cat": `{"format":"{calc(p * 1)} {p} {p.first}","p":[{"format":"{first}","first":["1","2"]}]}`,
+	})})
+	if err == nil || !strings.Contains(err.Error(), `calc operand "p"`) {
+		t.Fatalf("New = %v, want the calc operand named, being written first", err)
+	}
+}
+
 func TestReferenceToAMatchingStringIsAccepted(t *testing.T) {
 	// A literal renders one fixed string, so no draw of it can disagree with a
 	// held one. Two unrelated literals that merely spell the same text must not

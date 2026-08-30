@@ -101,17 +101,27 @@ func calcPrep(args []string) callFn {
 func calcOperands(format string) []string {
 	var names []string
 	_ = eachToken(format, func(t ftoken) error {
-		if t.kind != 'b' {
-			return nil
-		}
-		if name, args, ok := funcCall(t.body); ok && name == "calc" && len(args) >= 1 {
-			if expr, err := parseCalc(args[0]); err == nil {
-				names = append(names, calcVars(expr)...)
-			}
+		if t.kind == 'b' {
+			names = append(names, calcTokenOperands(t.body)...)
 		}
 		return nil
 	})
 	return names
+}
+
+// calcTokenOperands lists the sibling-field names one {token} body reads, empty
+// for anything that is not a {calc(...)}. checkCalc reports an expression that does
+// not parse, so one that does not simply names nothing here.
+func calcTokenOperands(body string) []string {
+	name, args, ok := funcCall(body)
+	if !ok || name != "calc" || len(args) == 0 {
+		return nil
+	}
+	expr, err := parseCalc(args[0])
+	if err != nil {
+		return nil
+	}
+	return calcVars(expr)
 }
 
 // calcVars lists the field names an expression references, for the existence
