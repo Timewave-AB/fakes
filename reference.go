@@ -32,43 +32,74 @@ func linkRefs(root map[string]node) error {
 			if err != nil {
 				return fmt.Errorf("%s: reference {%s}: %w", path, name, err)
 			}
-			if err := checkNotBound(t, name, target); err != nil {
-				return fmt.Errorf("%s: %w", path, err)
-			}
 			t.fields[name] = target
 		}
 		return nil
 	})
 }
 
-// checkNotBound rejects a reference that lands on a level this format binds, or
-// anywhere under one. Rendering the target draws it afresh beside the path that
-// reads its held draw, which is the overlap checkNoOverlap rejects between tokens
-// — a reference is one more spelling of it, and the only one that can reach a
-// level from outside the format. Heads are checked in sorted order so which
-// overlap is reported does not vary.
-func checkNotBound(t *template, ref string, target node) error {
-	heads := make([]string, 0, len(t.bound))
-	for head := range t.bound {
-		heads = append(heads, head)
-	}
-	sort.Strings(heads)
-	for _, head := range heads {
-		if reaches(t.fields[head], target) {
-			return fmt.Errorf("reference {%s} renders a level that {%s} reads a path into; name the fields you want instead", ref, t.bound[head])
+// checkBoundLevelsHeld rejects every route to a bound level except the paths that
+// read it. A path holds one draw of the level; anything else that renders it draws
+// again, and the two disagree. checkNoOverlap settles the spellings within one
+// format (a token, a calc operand); this settles the rest — a reference, whether it
+// sits in that format or in anything the format renders, however deep.
+//
+// It runs after checkNoCycles, whose guarantee is what lets the walk terminate.
+func checkBoundLevelsHeld(root map[string]node) error {
+	return walkNodes(root, func(path string, n node) error {
+		t, ok := n.(*template)
+		if !ok || len(t.bound) == 0 {
+			return nil
 		}
-	}
-	return nil
+		heads := make([]string, 0, len(t.bound))
+		for head := range t.bound {
+			heads = append(heads, head)
+		}
+		sort.Strings(heads) // so which overlap is reported does not vary
+		for _, head := range heads {
+			held := map[node]bool{}
+			cover(t.fields[head], held)
+			for _, e := range renderEdges(t) {
+				if splitArm(e.label).key == head {
+					continue // a path token reading this level, which is the one route allowed
+				}
+				if renders(e.to, held, map[node]bool{}) {
+					return fmt.Errorf("%s: {%s} renders a level that {%s} reads a path into; name the fields you want instead", path, e.label, t.bound[head])
+				}
+			}
+		}
+		return nil
+	})
 }
 
-// reaches reports whether want is n or a node contained in it. Containment is the
-// JSON structure, so the walk is over a tree and always terminates.
-func reaches(n, want node) bool {
-	if n == want {
+// cover collects what one held draw of a level answers for: the level and
+// everything contained in it, since a path may read any of it. Literals are left
+// out — one fixed string cannot disagree with itself, and a literal is a value, so
+// two that spell the same text are indistinguishable.
+func cover(n node, into map[node]bool) {
+	if _, fixed := n.(literal); fixed {
+		return
+	}
+	into[n] = true
+	for _, c := range contained(n) {
+		cover(c.node, into)
+	}
+}
+
+// renders reports whether rendering n can reach anything in want, following the
+// same edges expand does. seen keeps a node shared by several routes from being
+// walked twice; checkNoCycles has already proved the graph is a DAG, so the walk
+// ends.
+func renders(n node, want, seen map[node]bool) bool {
+	if want[n] {
 		return true
 	}
-	for _, c := range contained(n) {
-		if reaches(c.node, want) {
+	if seen[n] {
+		return false
+	}
+	seen[n] = true
+	for _, e := range renderEdges(n) {
+		if renders(e.to, want, seen) {
 			return true
 		}
 	}

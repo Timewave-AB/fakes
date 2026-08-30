@@ -33,6 +33,9 @@ func loadData(paths []string) (map[string]node, error) {
 	if err := checkNoCycles(root); err != nil {
 		return nil, err
 	}
+	if err := checkBoundLevelsHeld(root); err != nil {
+		return nil, err
+	}
 	return root, nil
 }
 

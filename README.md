@@ -352,7 +352,9 @@ one path read twice reads one value (`{p.first} … {p.first}@…` gives one nam
 path into* it — `{p}` beside `{p.first}`, or `{place}` beside `{place.locality}`.
 Rendering a level expands it afresh while a path reads the level's held draw, so
 the two would disagree; naming the fields you want is the one spelling that
-always agrees, and the other is a load error:
+always agrees, and the other is a load error. This covers every way a level can
+be rendered: a token, a `{calc()}` operand, and a `{..path}` reference — wherever
+the reference sits, including in a field the format renders.
 
 ```
 token {p} renders a level that {p.first} reads a path into; name the fields you want instead
@@ -373,9 +375,8 @@ region it sits in all come from one draw. Two paths part company exactly where
 they diverge: `{p.a.v}` and `{p.b.v}` share the row and nothing below it.
 
 The binding lasts for one expansion, so each `repeat` iteration draws again and a
-nested template keeps its own. A field no dotted token addresses is unaffected —
-`{word} {word}` still draws twice — and so are `{calc()}` operands, which read
-their fields directly.
+nested template keeps its own. A field no dotted token addresses is unaffected:
+`{word} {word}` still draws twice.
 
 `New` checks a path the way `Fake` resolves one: every variant of a multi-variant
 choice must carry the whole path, so a row missing a field is named at load:
