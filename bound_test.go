@@ -47,7 +47,7 @@ func TestRenderingALevelAndReadingIntoItIsRejected(t *testing.T) {
 	// other rendered — so the pair is a load error rather than a shape whose two
 	// halves can disagree.
 	rejected := map[string]string{
-		"bare head beside a path":  `{"format":"{p} + {p.first}","p":[{"format":"{first}","first":["Anna","Bo"]}]}`,
+		"bare head beside a path": `{"format":"{p} + {p.first}","p":[{"format":"{first}","first":["Anna","Bo"]}]}`,
 		"prefix path beside a path": `{"format":"{p.addr}|{p.addr.city}","p":[{"format":"{addr}","addr":[` +
 			`{"format":"{city}","city":["Kiruna","Boden"]},{"format":"{city}","city":["Malmö","Lund"]}]}]}`,
 		"either order": `{"format":"{p.first} + {p}","p":[{"format":"{first}","first":["Anna","Bo"]}]}`,

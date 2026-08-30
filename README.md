@@ -347,7 +347,19 @@ renders e.g. `Kungsgatan 35` / `176 99 Stockholm`, never a Stockholm postal code
 beside Tranås. Each row carries its own `weight`, so how often a place appears is data
 too. The rule holds both ways: two tails of one head come from the same row, and
 one path read twice reads one value (`{p.first} … {p.first}@…` gives one name).
-A bare `{place}` in such a format reads that same draw.
+
+**One draw, one spelling.** A format may not both *render* a level and *read a
+path into* it — `{p}` beside `{p.first}`, or `{place}` beside `{place.locality}`.
+Rendering a level expands it afresh while a path reads the level's held draw, so
+the two would disagree; naming the fields you want is the one spelling that
+always agrees, and the other is a load error:
+
+```
+token {p} renders a level that {p.first} reads a path into; name the fields you want instead
+```
+
+For the same reason a path may not read into a level carrying a `repeat`: it
+reads one draw, so the repeat could never apply.
 
 A path is held at **every level it passes through**, not just the first, so the
 facts can nest as deeply as they belong:

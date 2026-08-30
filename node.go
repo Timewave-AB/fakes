@@ -47,7 +47,7 @@ type template struct {
 	ops       []op // format compiled once (see compileOps); what expand walks
 	grow      int  // minimum output size, to size the render buffer
 	// bound is the fields the format addresses by dotted path, each drawn once per
-	// expansion so two tokens read one row (see boundHeads and expand). nil when
+	// expansion so two tokens read one row (see compileOps and expand). nil when
 	// the format takes no path.
 	bound map[string]bool
 }
@@ -161,6 +161,9 @@ func compileTemplate(m map[string]any) (node, error) {
 		return nil, err
 	}
 	t.ops, t.grow, t.bound = compileOps(format)
+	if err := checkNoOverlap(t.ops, t.bound); err != nil {
+		return nil, err
+	}
 	return t, nil
 }
 
@@ -174,6 +177,9 @@ func checkPath(n node, tail []string) error {
 	}
 	switch n := n.(type) {
 	case *template:
+		if n.repeat > 1 {
+			return fmt.Errorf("it carries a repeat, which a path reading one draw of it cannot apply")
+		}
 		child, ok := n.fields[tail[0]]
 		if !ok {
 			return fmt.Errorf("no field %q", tail[0])
