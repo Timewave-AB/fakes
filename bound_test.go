@@ -117,6 +117,23 @@ func TestReferenceNamingABoundLevelIsRejected(t *testing.T) {
 	}
 }
 
+func TestASharedNodeIsWalkedOnce(t *testing.T) {
+	// Two fields reaching one node make the render graph a diamond, not a tree.
+	// The search past a bound level must take that in its stride rather than walk
+	// the shared node once per route.
+	f, err := New([]string{writeData(t, map[string]string{
+		"cat": `{"format":"{p.first}|{q}","p":[{"format":"{first}","first":["Anna","Bo"]}],` +
+			`"q":{"format":"{a}{b}","a":{"format":"{..shared}"},"b":{"format":"{..shared}"}}}`,
+		"shared": `["x"]`,
+	})}, WithSeed(1))
+	if err != nil {
+		t.Fatalf("New = %v, want a shared node accepted", err)
+	}
+	if got, err := f.Fake("cat"); err != nil || !strings.HasSuffix(got, "|xx") {
+		t.Fatalf("Fake(cat) = %q, %v, want it to end in xx", got, err)
+	}
+}
+
 func TestReferenceToAMatchingStringIsAccepted(t *testing.T) {
 	// A literal renders one fixed string, so no draw of it can disagree with a
 	// held one. Two unrelated literals that merely spell the same text must not

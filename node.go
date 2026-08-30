@@ -46,11 +46,9 @@ type template struct {
 	separator string
 	ops       []op // format compiled once (see compileOps); what expand walks
 	grow      int  // minimum output size, to size the render buffer
-	// bound is the fields the format addresses by dotted path, each drawn once per
-	// expansion so two tokens read one row (see compileOps and expand). nil when
-	// the format takes no path.
-	// Each maps the field to one path token reading it, for naming the other half
-	// of an overlap.
+	// bound maps each field the format addresses by dotted path to one path token
+	// reading it: drawn once per expansion (see compileOps and expand), and the
+	// token names the other half of an overlap. nil when the format takes no path.
 	bound map[string]string
 }
 
@@ -169,10 +167,12 @@ func compileTemplate(m map[string]any) (node, error) {
 	return t, nil
 }
 
-// checkPath is the static twin of descend: it reports whether a dotted tail can
-// address a node whichever way the draw goes. A multi-variant choice must carry the
-// whole remaining path in the set every variant shares, so a path that validates
-// here resolves on every render, and a typo is a New-time error.
+// checkPath reports whether a token's dotted tail can address a node whichever way
+// the draw goes, by the reachability rule descend applies — a multi-variant choice
+// must carry the whole remaining path in the set every variant shares — plus the
+// rules a held draw adds, which descend has no need of: a level a path reads may
+// not carry a repeat, and each variant answers for that itself. So a path that
+// validates here resolves on every render, and a typo is a New-time error.
 func checkPath(n node, tail []string, level string) error {
 	if len(tail) == 0 {
 		return nil
