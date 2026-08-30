@@ -133,7 +133,11 @@ func checkTokens(format string, fields map[string]node) error {
 		if strings.IndexByte(t.body, '(') >= 0 { // a function token, not a field
 			return checkFunc(t.body, fields)
 		}
-		for _, name := range strings.Split(t.body, "|") {
+		names := strings.Split(t.body, "|")
+		if err := checkNoRepeatedArm(t.body, names); err != nil {
+			return err
+		}
+		for _, name := range names {
 			if isRef(name) {
 				if name == refPrefix {
 					return fmt.Errorf("token {%s}: reference has no path", t.body)
@@ -157,6 +161,24 @@ func checkTokens(format string, fields map[string]node) error {
 		}
 		return nil
 	})
+}
+
+// checkNoRepeatedArm rejects {a|a|b}. An alternation picks its arms evenly, so a
+// repeated one skews the odds — a third spelling of what weight is for, and one an
+// author is far likelier to have typed by accident than meant. The error names the
+// spelling that does skew a pick.
+func checkNoRepeatedArm(body string, names []string) error {
+	if len(names) < 2 {
+		return nil
+	}
+	seen := make(map[string]bool, len(names))
+	for _, name := range names {
+		if seen[name] {
+			return fmt.Errorf("token {%s}: arm %q is repeated; an alternation picks its arms evenly, so skew the odds with a choice's weights instead", body, name)
+		}
+		seen[name] = true
+	}
+	return nil
 }
 
 // fieldTokens returns the field and reference names a format renders via {name}
