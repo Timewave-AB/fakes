@@ -161,7 +161,7 @@ func compileTemplate(m map[string]any) (node, error) {
 		return nil, err
 	}
 	t.ops, t.grow, t.bound = compileOps(format)
-	if err := checkNoOverlap(t.ops, t.bound, format); err != nil {
+	if err := checkNoOverlap(format, t.bound); err != nil {
 		return nil, err
 	}
 	return t, nil

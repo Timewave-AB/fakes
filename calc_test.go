@@ -82,3 +82,18 @@ func TestCalcReproducible(t *testing.T) {
 		t.Fatalf("calc not reproducible: %q != %q", a, b)
 	}
 }
+
+// TestCalcTokenOperandsReadsOnlyACalc pins what the helper answers for a body that
+// is not a calc, and for one whose expression does not parse: nothing, either way.
+// checkCalc is what reports a bad expression, so the callers that run after it
+// never meet one — but they must not have to depend on that order to be safe.
+func TestCalcTokenOperandsReadsOnlyACalc(t *testing.T) {
+	for _, body := range []string{"plain", "luhn()", "calc()", "calc(1 +)", "calc(()"} {
+		if got := calcTokenOperands(body); got != nil {
+			t.Errorf("calcTokenOperands(%q) = %v, want none", body, got)
+		}
+	}
+	if got := calcTokenOperands("calc(net * qty)"); len(got) != 2 {
+		t.Errorf("calcTokenOperands(calc(net * qty)) = %v, want both operands", got)
+	}
+}

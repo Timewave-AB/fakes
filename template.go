@@ -211,26 +211,10 @@ func splitArm(name string) arm {
 // expands it afresh, so their values disagree. One spelling, so there is nothing
 // to get wrong. Names are compared in sorted order, so which pair is reported
 // does not depend on where the tokens sit.
-func checkNoOverlap(ops []op, bound map[string]string, format string) error {
-	var names []reader
-	for i := range ops {
-		if ops[i].kind != 'f' {
-			continue
-		}
-		for _, a := range ops[i].arms {
-			if _, isBound := bound[a.key]; isBound {
-				names = append(names, reader{a.name, "token {" + a.name + "}"})
-			}
-		}
-	}
-	// A calc operand renders its field, so it names a level exactly as a token does.
-	for _, name := range calcOperands(format) {
-		if _, isBound := bound[name]; isBound {
-			names = append(names, reader{name, fmt.Sprintf("calc operand %q", name)})
-		}
-	}
-	// Stable, so two readers of one name (a token and a calc operand both naming
-	// "p") are reported in the order the format writes them.
+func checkNoOverlap(format string, bound map[string]string) error {
+	names := boundReaders(format, bound)
+	// Stable over one format-order scan, so two readers of one name (a token and a
+	// calc operand both naming "p") are reported as the format writes them.
 	sort.SliceStable(names, func(i, j int) bool { return names[i].name < names[j].name })
 	for i, level := range names {
 		for _, path := range names[i+1:] {
@@ -244,6 +228,33 @@ func checkNoOverlap(ops []op, bound map[string]string, format string) error {
 
 // reader is one way a format reaches a bound field, and how to name that spelling.
 type reader struct{ name, label string }
+
+// boundReaders lists every way a format reaches a bound field, in the order the
+// format writes them. A calc operand renders its field, so it names a level exactly
+// as a token does; one scan finds both, which is what puts them in one order.
+func boundReaders(format string, bound map[string]string) []reader {
+	var names []reader
+	_ = eachToken(format, func(t ftoken) error {
+		if t.kind != 'b' {
+			return nil
+		}
+		if _, _, isFunc := funcCall(t.body); isFunc {
+			for _, operand := range calcTokenOperands(t.body) {
+				if _, isBound := bound[operand]; isBound {
+					names = append(names, reader{operand, fmt.Sprintf("calc operand %q", operand)})
+				}
+			}
+			return nil
+		}
+		for _, a := range splitArms(t.body) {
+			if _, isBound := bound[a.key]; isBound {
+				names = append(names, reader{a.name, "token {" + a.name + "}"})
+			}
+		}
+		return nil
+	})
+	return names
+}
 
 // checkSegments rejects an unfinished path: "{a.}", "{.b}" and "{a..b}" each have
 // a segment naming nothing. A field really named "" would otherwise make them
