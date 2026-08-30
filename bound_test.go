@@ -142,6 +142,30 @@ func TestALevelRenderedOnlyByAPathTokenIsHeld(t *testing.T) {
 	}
 }
 
+func TestAPathReachesEveryVariantItMightDraw(t *testing.T) {
+	// A path through a choice may land in any variant, so both walks have to see
+	// all of them. Reaching only the first leaves whatever hides in a later
+	// variant to be found at render — a cycle there is fatal, and a second route
+	// to a held level disagrees silently.
+	rejected := map[string]struct{ file, want string }{
+		"a cycle in a later variant": {
+			`{"format":"{p.x}","p":[{"format":"h","x":"safe"},{"format":"h","x":{"format":"{..cat}"}}]}`,
+			"reference cycle",
+		},
+		"a second route in a later variant": {
+			`{"format":"{p.x} {q.y}","p":[{"format":"h","x":"safe"},{"format":"h","x":{"format":"{..cat.q}"}}],` +
+				`"q":{"format":"{y}","y":["1","2"]}}`,
+			"reads a path into",
+		},
+	}
+	for name, c := range rejected {
+		_, err := New([]string{writeData(t, map[string]string{"cat": c.file})})
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: New = %v, want it to mention %q", name, err, c.want)
+		}
+	}
+}
+
 func TestALevelAPathNeverRendersIsAccepted(t *testing.T) {
 	// A path token does not expand its head's format, so a reference sitting in
 	// that format is not a second route to anything: it is never rendered by the
