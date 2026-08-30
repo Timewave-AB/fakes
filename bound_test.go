@@ -41,15 +41,54 @@ func TestDottedTokenCorrelatesSiblingFields(t *testing.T) {
 	}
 }
 
-func TestBareTokenBindsWhenTheFormatAlsoTakesAPath(t *testing.T) {
-	// A head any dotted token addresses is drawn once, so a bare {place} in the
-	// same format reads that same draw rather than a second one.
-	f := engine(2)
-	for i := 0; i < 300; i++ {
-		got := mustRender(t, f, places("{place.postal-code} {place}"))
-		if !agree.MatchString(got) {
-			t.Fatalf("draw %d = %q, want the bare token to read the bound draw", i, got)
+func TestRenderingALevelAndReadingIntoItIsRejected(t *testing.T) {
+	// One draw, one spelling. A token that renders a level and one that reads a
+	// path into it name the same draw two ways, and only the path reads what the
+	// other rendered — so the pair is a load error rather than a shape whose two
+	// halves can disagree.
+	rejected := map[string]string{
+		"bare head beside a path":  `{"format":"{p} + {p.first}","p":[{"format":"{first}","first":["Anna","Bo"]}]}`,
+		"prefix path beside a path": `{"format":"{p.addr}|{p.addr.city}","p":[{"format":"{addr}","addr":[` +
+			`{"format":"{city}","city":["Kiruna","Boden"]},{"format":"{city}","city":["Malmö","Lund"]}]}]}`,
+		"either order": `{"format":"{p.first} + {p}","p":[{"format":"{first}","first":["Anna","Bo"]}]}`,
+	}
+	for name, file := range rejected {
+		_, err := New([]string{writeData(t, map[string]string{"cat": file})})
+		if err == nil {
+			t.Errorf("%s: New = nil error, want the overlapping tokens rejected", name)
+			continue
 		}
+		if !strings.Contains(err.Error(), "reads a path into") {
+			t.Errorf("%s: New = %v, want it to name the overlap", name, err)
+		}
+	}
+	// The same path twice is one spelling, so it stays legal.
+	if _, err := New([]string{writeData(t, map[string]string{
+		"cat": `{"format":"{p.first} + {p.first}","p":[{"format":"{first}","first":["Anna","Bo"]}]}`,
+	})}); err != nil {
+		t.Errorf("New = %v, want one path read twice accepted", err)
+	}
+}
+
+func TestPathIntoARepeatingLevelIsRejected(t *testing.T) {
+	// A path reads one level's draw, so it can never apply that level's repeat.
+	// The engine rejects options that cannot take effect, and this is one.
+	_, err := New([]string{writeData(t, map[string]string{
+		"cat": `{"format":"[{p.a}]","p":{"format":"{a}","repeat":3,"separator":",","a":["z"]}}`,
+	})})
+	if err == nil || !strings.Contains(err.Error(), "repeat") {
+		t.Fatalf("New = %v, want a path into a repeating level rejected", err)
+	}
+}
+
+func TestPathIntoAPlainTemplateNamesTheMissingField(t *testing.T) {
+	// A head that is one template, not a choice, reports the missing segment
+	// directly — there are no variants to compare.
+	_, err := New([]string{writeData(t, map[string]string{
+		"cat": `{"format":"{a.nope}","a":{"format":"x","b":"1"}}`,
+	})})
+	if err == nil || !strings.Contains(err.Error(), `no field "nope"`) {
+		t.Fatalf("New = %v, want it to name the missing field", err)
 	}
 }
 
@@ -284,22 +323,6 @@ func TestDeepPathsUnderOneHeadStayIndependentWhereTheyDiverge(t *testing.T) {
 	for _, want := range []string{"11", "12", "21", "22"} {
 		if !seen[want] {
 			t.Fatalf("400 draws produced %v, want every combination including %q", seen, want)
-		}
-	}
-}
-
-func TestAPathAndItsOwnPrefixShareTheDraw(t *testing.T) {
-	// {p.addr} and {p.addr.city} name the same level, so they must read the same
-	// draw of it — a path that is itself the prefix of another is still one draw.
-	f := engine(15)
-	tmpl := `{"format":"{p.addr}|{p.addr.city}","p":[{"format":"{addr}","addr":[
-		{"format":"{city}","city":"Kiruna","zip":"98100"},
-		{"format":"{city}","city":"Malmö","zip":"21100"}]}]}`
-	for i := 0; i < 400; i++ {
-		got := mustRender(t, f, tmpl)
-		parts := strings.Split(got, "|")
-		if parts[0] != parts[1] {
-			t.Fatalf("draw %d = %q, want one draw read by both", i, got)
 		}
 	}
 }
