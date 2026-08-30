@@ -356,7 +356,7 @@ always agrees, and the other is a load error. This covers every way a level can
 be rendered: a token, a `{calc()}` operand, and a `{..path}` reference — wherever
 the reference sits, including in a field the format renders.
 
-```
+```text
 token {p} renders a level that {p.first} reads a path into; name the fields you want instead
 ```
 
@@ -381,7 +381,7 @@ nested template keeps its own. A field no dotted token addresses is unaffected:
 `New` checks a path the way `Fake` resolves one: every variant of a multi-variant
 choice must carry the whole path, so a row missing a field is named at load:
 
-```
+```text
 token {place.postal-code}: field "place": not every variant of this 2-way choice
 carries "postal-code"; all carry [locality]
 ```
