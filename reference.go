@@ -65,7 +65,7 @@ func checkBoundLevelsHeld(root map[string]node) error {
 			if isPath {
 				cover(t.fields[head], held)
 			} else {
-				coverRendered(t.fields[head], held)
+				operandDraw(t.fields[head], held)
 			}
 			if len(held) == 0 {
 				continue // a fixed string, which cannot disagree with itself
@@ -79,9 +79,9 @@ func checkBoundLevelsHeld(root map[string]node) error {
 				}
 				if renders(e.to, held, seen) {
 					if isPath {
-						return fmt.Errorf("%s: {%s} renders %q, which {%s} reads a path into; name the fields you want instead", path, e.label, head, reader)
+						return fmt.Errorf("%s: %s renders %q, which {%s} reads a path into; name the fields you want instead", path, e.reached(), head, reader)
 					}
-					return fmt.Errorf("%s: {%s} renders %q, which a {calc()} also reads; reach it one way so it is drawn once", path, e.label, head)
+					return fmt.Errorf("%s: %s renders %q, which a {calc()} also reads; reach it one way so it is drawn once", path, e.reached(), head)
 				}
 			}
 		}
@@ -103,24 +103,18 @@ func cover(n node, into map[node]bool) {
 	}
 }
 
-// coverRendered collects what one held draw of a calc operand answers for: what
-// rendering it reaches, following the same edges expand does. An operand is only
-// ever rendered — checkNoOverlap rejects a path into one — so its draw fixes that
-// value and nothing else. That is narrower than containment where a sibling the
-// operand's format never renders cannot disagree with it, and wider where the
-// operand renders through a reference, which is part of the value it produces.
-// Literals are left out for the reason cover leaves them out.
-func coverRendered(n node, into map[node]bool) {
+// operandDraw collects what one held draw of a {calc()} operand answers for: that
+// one node. A calc renders its operand whole, so the draw is the value that render
+// produces, and another route conflicts only by naming the same node. Containment
+// is the wrong set here — a sibling the operand never renders is no part of its
+// value — and so is the render closure, which would read two names drawing from one
+// shared source as one draw. A literal is left out for the reason cover leaves one
+// out.
+func operandDraw(n node, into map[node]bool) {
 	if _, fixed := n.(literal); fixed {
 		return
 	}
-	if into[n] {
-		return
-	}
 	into[n] = true
-	for _, e := range renderEdges(n) {
-		coverRendered(e.to, into)
-	}
 }
 
 // renders reports whether rendering n can reach anything in want, following the
@@ -267,11 +261,23 @@ func refTokens(format string) []string {
 	return refs
 }
 
-// renderEdge is a child a node renders into, labelled by the token that reaches it
-// (a field name, reference, or choice index) for a readable cycle report.
+// renderEdge is a child a node renders into, labelled by what reaches it (a field
+// name, reference, or choice index) for a readable cycle report. operand marks a
+// label that is a {calc()} operand name rather than a token, so an error can name
+// it the way the author wrote it.
 type renderEdge struct {
-	to    node
-	label string
+	to      node
+	label   string
+	operand bool
+}
+
+// reached names an edge as the author spelled it, the vocabulary boundReaders uses
+// for the sibling fence.
+func (e renderEdge) reached() string {
+	if e.operand {
+		return fmt.Sprintf("calc operand %q", e.label)
+	}
+	return "{" + e.label + "}"
 }
 
 // renderEdges lists the children rendering n recurses into, mirroring expand: a
@@ -282,20 +288,26 @@ func renderEdges(n node) []renderEdge {
 	case *choice:
 		es := make([]renderEdge, len(n.items))
 		for i, it := range n.items {
-			es[i] = renderEdge{it, fmt.Sprintf("[%d]", i)}
+			es[i] = renderEdge{to: it, label: fmt.Sprintf("[%d]", i)}
 		}
 		return es
 	case *template:
 		var es []renderEdge
-		for _, name := range append(fieldTokens(n.format), calcOperands(n.format)...) {
+		add := func(name string, operand bool) {
 			a := splitArm(name)
 			c, ok := n.fields[a.key]
 			if !ok {
-				continue
+				return
 			}
 			for _, leaf := range pathLeaves(c, a.tail) {
-				es = append(es, renderEdge{leaf, name})
+				es = append(es, renderEdge{leaf, name, operand})
 			}
+		}
+		for _, name := range fieldTokens(n.format) {
+			add(name, false)
+		}
+		for _, name := range calcOperands(n.format) {
+			add(name, true)
 		}
 		return es
 	default:
