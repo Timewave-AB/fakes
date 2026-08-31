@@ -8,7 +8,7 @@ import "testing"
 func TestSeededOutputIsStable(t *testing.T) {
 	dir := writeData(t, map[string]string{
 		"alt":     `{"format":"{a|b}","a":["A"],"b":["B"]}`,
-		"calc":    `{"format":"{net} x {qty} = {calc(net * qty, 2)}","net":["19.99"],"qty":["3"]}`,
+		"calc":    `{"format":"{net} x {qty} = {calc(net * qty, 2)}","net":["19.99","5.00","100.00"],"qty":["2","3","7"]}`,
 		"classes": `{"format":"00-11-AA-aa"}`,
 		"escapes": `{"format":"#0#1#A#a##{x}","x":["!"]}`,
 		"funcs":   `{"format":"{hex(6)} {int(10,99)} {float(0,1,3)} {nanoid(5)} {seq()}"}`,
@@ -20,7 +20,7 @@ func TestSeededOutputIsStable(t *testing.T) {
 	})
 	want := map[string][]string{
 		"alt":     {"A", "B", "A", "A"},
-		"calc":    {"19.99 x 3 = 59.97", "19.99 x 3 = 59.97", "19.99 x 3 = 59.97", "19.99 x 3 = 59.97"},
+		"calc":    {"100.00 x 3 = 300.00", "100.00 x 3 = 300.00", "100.00 x 7 = 700.00", "5.00 x 3 = 15.00"},
 		"classes": {"49-74-VY-gj", "38-68-RP-xo", "47-68-IB-hs", "91-89-LP-gk"},
 		"escapes": {"01Aa#!", "01Aa#!", "01Aa#!", "01Aa#!"},
 		"funcs":   {"0016a2 33 0.649 k4Kwj 1", "a00c07 84 0.175 6UjGv 2", "f70eb8 12 0.390 p5p6g 3", "9048a3 90 0.531 I3Aqv 4"},
