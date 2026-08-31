@@ -142,30 +142,32 @@ func TestALevelRenderedOnlyByAPathTokenIsHeld(t *testing.T) {
 	}
 }
 
-// TestACalcOperandIsHeldAgainstEveryRoute pins that a {calc()} operand is fenced
-// the way a path-read level is. The operand is drawn once and held; a {..path}
-// spelling of the same field renders it afresh, so the value shown would not be
-// the value computed — the disagreement the hold exists to remove.
+// TestACalcOperandIsHeldAgainstEveryRoute pins what a {calc()} operand's hold
+// fences. A calc renders its operand whole, so the draw it holds is that one node's
+// value: another route conflicts only by naming that same node, and then the value
+// shown is not the value computed. Two names that merely draw from one source are
+// two draws, as {word} {word} is — the rule everywhere else in the engine.
 func TestACalcOperandIsHeldAgainstEveryRoute(t *testing.T) {
-	rejected := map[string]string{
-		"a reference beside the operand": `{"format":"{..cat.net} x 2 = {calc(net * 2, 2)}","net":["10.00","20.00"]}`,
-		"a reference one level down": `{"format":"{calc(net * 2, 2)} {q}","net":["10.00","20.00"],` +
-			`"q":{"format":"{..cat.net}"}}`,
+	rejected := map[string]map[string]string{
+		"a reference beside the operand": {
+			"cat": `{"format":"{..cat.net} x 2 = {calc(net * 2, 2)}","net":["10.00","20.00"]}`,
+		},
+		"a reference one level down": {
+			"cat": `{"format":"{calc(net * 2, 2)} {q}","net":["10.00","20.00"],` +
+				`"q":{"format":"{..cat.net}"}}`,
+		},
+		// A reference ending at the operand binds the choice itself, not a variant,
+		// so wrapping the operand in one changes nothing.
+		"a reference to an operand wrapped in a choice": {
+			"cat": `{"format":"{calc(n * 2, 2)} {q}","n":[{"format":"{v}","v":["1","2"]}],` +
+				`"q":{"format":"{..cat.n}"}}`,
+		},
 	}
-	for name, file := range rejected {
-		_, err := New([]string{writeData(t, map[string]string{"cat": file})})
+	for name, files := range rejected {
+		_, err := New([]string{writeData(t, files)})
 		if err == nil || !strings.Contains(err.Error(), "a {calc()} also reads") {
 			t.Errorf("%s: New = %v, want the second route to the operand rejected", name, err)
 		}
-	}
-	// A reference reaching what the operand renders *through* is a second route
-	// too, however the operand comes by its value.
-	_, err := New([]string{writeData(t, map[string]string{
-		"common": `["1","2"]`,
-		"cat":    `{"format":"{calc(net * 2, 2)} {..common}","net":{"format":"{..common}"}}`,
-	})})
-	if err == nil || !strings.Contains(err.Error(), "a {calc()} also reads") {
-		t.Errorf("New = %v, want the reference to what the operand renders rejected", err)
 	}
 
 	accepted := map[string]map[string]string{
@@ -173,14 +175,30 @@ func TestACalcOperandIsHeldAgainstEveryRoute(t *testing.T) {
 		"only the operand and a bare token": {
 			"cat": `{"format":"{net} x 2 = {calc(net * 2, 2)}","net":["10.00","20.00"]}`,
 		},
-		// An operand's draw fixes the value it renders and nothing else, so a sibling
-		// its format never renders cannot disagree with it. A path head differs: a
-		// path may read into anything the level contains, which is why that half of
-		// the fence still covers containment.
+		// A sibling the operand's format never renders is no part of its value. A
+		// path head differs — a path may read into anything the level contains —
+		// which is why that half of the fence covers containment.
 		"a reference to a sibling the operand never renders": {
 			"cat": `{"format":"{calc(net * 2, 2)} {unit}",` +
 				`"net":{"format":"{v}","v":["1","2"],"spare":["kg","lb"]},` +
 				`"unit":{"format":"{..cat.net.spare}"}}`,
+		},
+		// Two operands drawing from one source are two names, so two draws: each is
+		// held under its own name and shown once, and neither can disagree.
+		"two operands sharing one source": {
+			"die": `["1","2","3","4","5","6"]`,
+			"cat": `{"format":"{d1} + {d2} = {calc(d1 + d2, 0)}","d1":{"format":"{..die}"},` +
+				`"d2":{"format":"{..die}"}}`,
+		},
+		// Likewise a reference drawing from what the operand draws from: {..common}
+		// and net are two names, not two spellings of one field.
+		"a reference to what an operand renders through": {
+			"common": `["1","2"]`,
+			"cat":    `{"format":"{calc(net * 2, 2)} {..common}","net":{"format":"{..common}"}}`,
+		},
+		// A fixed string cannot disagree with itself, so it needs no fence.
+		"a literal operand named twice": {
+			"cat": `{"format":"{calc(n * 2, 0)} {..cat.n}","n":"5"}`,
 		},
 	}
 	for name, files := range accepted {
