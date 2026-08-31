@@ -60,8 +60,19 @@ func checkBoundLevelsHeld(root map[string]node) error {
 		}
 		sort.Strings(heads) // so which overlap is reported does not vary
 		for _, head := range heads {
+			// What one draw answers for depends on how the draw is read. A path may
+			// read into anything the level contains; a calc renders its operand, so
+			// that draw fixes exactly the value the render produces.
 			held := map[node]bool{}
-			cover(t.fields[head], held)
+			reader, isPath := t.bound[head]
+			if isPath {
+				cover(t.fields[head], held)
+			} else {
+				coverRendered(t.fields[head], held)
+			}
+			if len(held) == 0 {
+				continue // a fixed string, which cannot disagree with itself
+			}
 			// One seen set across the edges: a node that cannot reach the level
 			// cannot reach it by another route either, so it is walked once here.
 			seen := map[node]bool{}
@@ -70,10 +81,10 @@ func checkBoundLevelsHeld(root map[string]node) error {
 					continue // a token or operand reading this draw, the routes allowed
 				}
 				if renders(e.to, held, seen) {
-					if reader, isPath := t.bound[head]; isPath {
+					if isPath {
 						return fmt.Errorf("%s: {%s} renders %q, which {%s} reads a path into; name the fields you want instead", path, e.label, head, reader)
 					}
-					return fmt.Errorf("%s: {%s} renders %q, which a {calc()} also reads; spell it {%s} so both read one draw", path, e.label, head, head)
+					return fmt.Errorf("%s: {%s} renders %q, which a {calc()} also reads; reach it one way so it is drawn once", path, e.label, head)
 				}
 			}
 		}
@@ -92,6 +103,26 @@ func cover(n node, into map[node]bool) {
 	into[n] = true
 	for _, c := range contained(n) {
 		cover(c.node, into)
+	}
+}
+
+// coverRendered collects what one held draw of a calc operand answers for: what
+// rendering it reaches, following the same edges expand does. An operand is only
+// ever rendered — checkNoOverlap rejects a path into one — so its draw fixes that
+// value and nothing else. That is narrower than containment where a sibling the
+// operand's format never renders cannot disagree with it, and wider where the
+// operand renders through a reference, which is part of the value it produces.
+// Literals are left out for the reason cover leaves them out.
+func coverRendered(n node, into map[node]bool) {
+	if _, fixed := n.(literal); fixed {
+		return
+	}
+	if into[n] {
+		return
+	}
+	into[n] = true
+	for _, e := range renderEdges(n) {
+		coverRendered(e.to, into)
 	}
 }
 
