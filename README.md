@@ -365,10 +365,12 @@ the reference sits, including in a field the format renders.
 
 A `{calc()}` operand is held on its own terms too, so the same fence guards it:
 `{..cat.net} x 2 = {calc(net * 2, 2)}` names one field two ways and is a load
-error, with no path token anywhere. A calc renders its operand whole, so what the
-hold pins is that one field — another route conflicts only by naming it. Two
-names that merely draw from one source are two draws, as `{word} {word}` is, so
-two dice over one `{..die}` are fine.
+error, with no path token anywhere. A calc renders its operand whole, so the hold
+pins every value that render settled: naming the operand and reaching into it
+both conflict, and `{net.v}` and `{..cat.net.v}` are rejected alike. The hold
+ends at a `{..path}`, where the operand's own value ends and a shared source
+begins — two names drawing from one referenced category are two draws, as
+`{word} {word}` is, so two dice over one `{..die}` are fine.
 
 ```text
 token {p} renders a level that {p.first} reads a path into; name the fields you want instead
