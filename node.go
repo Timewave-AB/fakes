@@ -266,6 +266,9 @@ var reservedList = strings.Join(strings.Split(reservedInName, ""), " ")
 // category or folder and a field go through it, so there is one answer to what a
 // name may contain.
 func checkName(name string) error {
+	if name == "" {
+		return fmt.Errorf("%q is empty, so no dot path can reach it", name)
+	}
 	if i := strings.IndexAny(name, reservedInName); i >= 0 {
 		return fmt.Errorf("%q contains %q; a name may not use %s, which the dot path and {token} grammars reserve",
 			name, name[i:i+1], reservedList)
