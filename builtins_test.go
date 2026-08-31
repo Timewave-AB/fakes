@@ -193,3 +193,27 @@ func TestRegistryShapes(t *testing.T) {
 		}
 	}
 }
+
+// TestArgGuardsPanic pins the guards that report a builtin arg its check should
+// have rejected. No data reaches them — checkFunc runs a builtin's check before
+// compileOps ever calls prep — so they are exercised directly.
+func TestArgGuardsPanic(t *testing.T) {
+	for name, call := range map[string]func(){
+		"atoi on an unvalidated arg": func() { atoi("nope") },
+		"atof on an unvalidated arg": func() { atof("nope") },
+	} {
+		mustPanic(t, name, call)
+	}
+}
+
+// mustPanic fails unless call panics, which is what separates a reported
+// invariant break from a silently wrong value.
+func mustPanic(t *testing.T, name string, call func()) {
+	t.Helper()
+	defer func() {
+		if recover() == nil {
+			t.Errorf("%s: no panic, want the invariant reported", name)
+		}
+	}()
+	call()
+}
