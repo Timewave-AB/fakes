@@ -48,9 +48,7 @@ var builtins = map[string]builtin{
 		return func(s *session, _ string, _ []string) string { return strconv.Itoa(lo + s.IntN(span)) }
 	}},
 	"float": {arity: 3, check: floatArgs, prep: func(a []string) callFn {
-		lo, _ := strconv.ParseFloat(a[0], 64)
-		hi, _ := strconv.ParseFloat(a[1], 64)
-		dp := atoi(a[2])
+		lo, hi, dp := atof(a[0]), atof(a[1]), atoi(a[2])
 		return func(s *session, _ string, _ []string) string {
 			return strconv.FormatFloat(lo+s.Float64()*(hi-lo), 'f', dp, 64)
 		}
@@ -102,6 +100,15 @@ func atoi(s string) int {
 		panic(fmt.Sprintf("fakes: builtin arg %q reached prep unvalidated: %v", s, err))
 	}
 	return n
+}
+
+// atof is atoi for a float arg, and reports an unvalidated one the same way.
+func atof(s string) float64 {
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		panic(fmt.Sprintf("fakes: builtin arg %q reached prep unvalidated: %v", s, err))
+	}
+	return f
 }
 
 func randBytes(r rng, n int) []byte {
