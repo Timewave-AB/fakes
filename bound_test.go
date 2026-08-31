@@ -656,12 +656,13 @@ func TestDeepPathsUnderOneHeadStayIndependentWhereTheyDiverge(t *testing.T) {
 }
 
 func TestEmptyPathSegmentIsRejected(t *testing.T) {
-	// "{a.}", "{.b}" and "{a..b}" are unfinished paths. A field really named ""
-	// would otherwise make them resolve, which reads as a typo that worked.
+	// "{a.}", "{.b}" and "{a..b}" are unfinished paths, and the segment naming
+	// nothing is reported as that rather than as a missing field. An empty name is
+	// rejected where it is authored, so no data can make these resolve.
 	rejected := map[string]string{
-		"trailing dot": `{"format":"[{a.}]","a":{"format":"x","":["V"]}}`,
-		"leading dot":  `{"format":"[{.b}]","":{"format":"{b}","b":["V"]}}`,
-		"double dot":   `{"format":"[{a..b}]","a":{"format":"x","":{"format":"{b}","b":["V"]}}}`,
+		"trailing dot": `{"format":"[{a.}]","a":{"format":"x"}}`,
+		"leading dot":  `{"format":"[{.b}]","a":{"format":"{b}","b":["V"]}}`,
+		"double dot":   `{"format":"[{a..b}]","a":{"format":"x"}}`,
 	}
 	for name, file := range rejected {
 		_, err := New([]string{writeData(t, map[string]string{"cat": file})})
