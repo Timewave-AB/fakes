@@ -96,7 +96,10 @@ func checkCalc(fields map[string]node, args []string) error {
 // operand name at the position expand will read it into. checkCalc proved both args
 // valid, so no step here can fail; dp -1 prints the minimal form.
 func calcPrep(args []string) callFn {
-	expr, _ := parseCalc(args[0])
+	expr, err := parseCalc(args[0])
+	if err != nil { // a nil AST would be a nil dereference per render, with no message
+		panic(fmt.Sprintf("fakes: calc(%q) reached prep unparsed: %v", args[0], err))
+	}
 	at := make(map[string]int)
 	for i, name := range calcVars(expr) {
 		at[name] = i

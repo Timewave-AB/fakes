@@ -93,8 +93,16 @@ func generate(f func(rng) string) func([]string) callFn {
 
 const hexDigits = "0123456789abcdef"
 
-// atoi parses an arg already validated by a builtin's check, so it cannot fail.
-func atoi(s string) int { n, _ := strconv.Atoi(s); return n }
+// atoi parses an arg a builtin's check already validated. It panics rather than
+// returning zero, so a check that stops covering its own args is a stack trace and
+// not a silently wrong length, range or decimal count.
+func atoi(s string) int {
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		panic(fmt.Sprintf("fakes: builtin arg %q reached prep unvalidated: %v", s, err))
+	}
+	return n
+}
 
 func randBytes(r rng, n int) []byte {
 	b := make([]byte, n)
