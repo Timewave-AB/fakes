@@ -183,6 +183,23 @@ func TestACalcOperandIsHeldAgainstEveryRoute(t *testing.T) {
 			},
 			`calc operand "b" renders "a"`,
 		},
+		// Reaching *into* the operand is the same shape as naming it: the draw the
+		// calc holds settled that value too. The token spelling {net.v} is already
+		// rejected, so the reference spelling has to be.
+		"a reference into the operand": {
+			map[string]string{
+				"cat": `{"format":"{calc(net * 2, 2)}|{..cat.net.v}",` +
+					`"net":{"format":"{v}","v":["10.00","20.00"]}}`,
+			},
+			`{..cat.net.v} renders "net"`,
+		},
+		"a reference into the operand one level down": {
+			map[string]string{
+				"cat": `{"format":"{calc(net * 2, 2)}|{q}","net":{"format":"{v}","v":["10.00","20.00"]},` +
+					`"q":{"format":"{..cat.net.v}"}}`,
+			},
+			`{q} renders "net"`,
+		},
 	}
 	for name, c := range rejected {
 		_, err := New([]string{writeData(t, c.files)})
