@@ -44,9 +44,6 @@ func linkRefs(root map[string]node) error {
 // format (a token, a calc operand); this settles the rest — a reference, whether it
 // sits in that format or in anything the format renders, however deep.
 //
-// It walks t.held, so it covers both kinds of hold: the level a dotted token reads,
-// and the sibling a {calc()} reads.
-//
 // It runs after checkNoCycles, whose guarantee is what lets the walk terminate.
 func checkBoundLevelsHeld(root map[string]node) error {
 	return walkNodes(root, func(path string, n node) error {

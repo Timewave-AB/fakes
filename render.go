@@ -138,8 +138,7 @@ func expand(s *session, t *template) string {
 	var b strings.Builder
 	b.Grow(t.grow)
 	// One draw per held name, for this expansion only: a nested template and each
-	// repeat iteration get their own, since each is its own expansion. held reaches
-	// no further than readField, which keeps it and its maps on the stack.
+	// repeat iteration get their own, since each is its own expansion.
 	var held *draws
 	if len(t.held) > 0 {
 		held = &draws{
