@@ -257,11 +257,9 @@ func weightOf(raw any) (float64, error) {
 // separates the segments of a path, '|' the arms of a token, '(' opens a function
 // call and '}' ends the token. A name carrying one is reachable by no format, so it
 // is rejected where it is authored rather than at the token that cannot reach it.
-// ')' is absent deliberately — it is spellable on its own, so it stays legal.
 const reservedInName = ".|(}"
 
-// reservedList is reservedInName spelled out for an error message, so the two
-// cannot drift apart.
+// reservedList spells reservedInName for an error message, so the two cannot drift.
 var reservedList = strings.Join(strings.Split(reservedInName, ""), " ")
 
 // checkName rejects a name the dot path and {token} grammars cannot spell. Both a
