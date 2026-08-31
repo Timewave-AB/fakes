@@ -104,12 +104,10 @@ func cover(n node, into map[node]bool) {
 }
 
 // operandDraw collects what one held draw of a {calc()} operand answers for: that
-// one node. A calc renders its operand whole, so the draw is the value that render
-// produces, and another route conflicts only by naming the same node. Containment
-// is the wrong set here — a sibling the operand never renders is no part of its
-// value — and so is the render closure, which would read two names drawing from one
-// shared source as one draw. A literal is left out for the reason cover leaves one
-// out.
+// one node, since a calc renders its operand whole. Neither wider set works —
+// containment reaches a sibling the operand never renders, and the render closure
+// reaches a source two operands share, and neither of those can disagree with it.
+// A literal is left out for the reason cover leaves one out.
 func operandDraw(n node, into map[node]bool) {
 	if _, fixed := n.(literal); fixed {
 		return

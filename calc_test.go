@@ -103,6 +103,19 @@ func TestCalcTokenOperandsReadsOnlyACalc(t *testing.T) {
 	}
 }
 
+// TestCalcGuardsPanic pins the guards on calc's own invariants: checkCalc parsed
+// the expression before prep sees it, and indexVars places every name calcVars
+// read, so a break in either is reported rather than computed around.
+func TestCalcGuardsPanic(t *testing.T) {
+	for name, call := range map[string]func(){
+		"prep on an expression that does not parse": func() { calcPrep([]string{"1 +"}) },
+		"an operand name never placed":              func() { calcVar("n").eval(nil) },
+		"indexVars on a name it did not read":       func() { indexVars(calcVar("n"), map[string]int{}) },
+	} {
+		mustPanic(t, name, call)
+	}
+}
+
 // --- one draw, one value: a calc operand reads the expansion's draw ---
 
 // TestCalcOperandReadsTheExpansionsDraw pins the one-draw rule for a calc operand.
