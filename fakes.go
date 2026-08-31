@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"sort"
-	"strings"
 )
 
 // Fakes generates fake data from a loaded namespace tree. Create one with [New].
@@ -93,14 +92,6 @@ func (f *Fakes) List() []string {
 	return out
 }
 
-// addressable reports whether a name can be one segment of a dot path. A dot would
-// split it into two segments and an empty name into none, so a path through such a
-// name cannot be spelled — List must not offer one, and it must not count towards
-// what a choice's variants share.
-func addressable(name string) bool {
-	return name != "" && !strings.Contains(name, ".")
-}
-
 // paths lists the dot paths addressable from n, relative to it, where "" is n
 // itself. A group has no value of its own, so it contributes only its children's.
 func paths(n node) []string {
@@ -108,9 +99,6 @@ func paths(n node) []string {
 	case *group:
 		var out []string
 		for _, name := range sortedNames(n.children) {
-			if !addressable(name) {
-				continue
-			}
 			for _, p := range paths(n.children[name]) {
 				out = append(out, join(name, p))
 			}
@@ -119,7 +107,7 @@ func paths(n node) []string {
 	case *template:
 		out := []string{""}
 		for _, name := range sortedNames(n.fields) {
-			if isRef(name) || !addressable(name) { // a binding, or unreachable by path
+			if isRef(name) { // a binding, not a path segment
 				continue
 			}
 			for _, p := range paths(n.fields[name]) {

@@ -238,8 +238,9 @@ option stays unset. `New` rejects an option that cannot take effect — a
 `separator` without a `repeat` above 1, a `weight` outside a choice — and a name
 using a character the grammars reserve: `.` separates the segments of a path, `|`
 the arms of a token, `(` opens a function call and `}` ends the token, so a name
-carrying one is a name no format could ever spell. That holds for a category, a
-folder and a field alike.
+carrying one is a name no format could ever spell. An empty name goes the same
+way — it is no path segment at all, so `List` never offers it. That holds for a
+category, a folder and a field alike.
 
 **Functions.** A `{name()}` token calls a built-in function instead of rendering
 a field. `{luhn()}` appends a Luhn check digit over the digits emitted **so far**
