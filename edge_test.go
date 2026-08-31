@@ -120,6 +120,13 @@ func TestNewErrors(t *testing.T) {
 			map[string]string{"a|b": `["1"]`},
 			`category "a|b" contains "|"`,
 		},
+		// An empty name is reachable by no dot path, so List cannot advertise it and
+		// Fake cannot ask for it — {} is the one spelling that reaches it, which is
+		// the same trap {a.} is already rejected for.
+		"empty field name": {
+			map[string]string{"a": `{"format":"[{}]","":"VALUE"}`},
+			`field "" is empty`,
+		},
 		"folder name with a paren": {
 			map[string]string{"a(b/cat": `["1"]`},
 			`folder "a(b" contains "("`,
