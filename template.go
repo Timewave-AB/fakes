@@ -317,9 +317,8 @@ type op struct {
 	r    rune   // kind 'c'
 	arms []arm  // kind 'f': the '|' alternatives, split into key and path once
 	call callFn
-	// operands names the sibling fields a {calc()} reads, in the order its
-	// expression first names them. expand reads them before the call, so the
-	// evaluator never touches the node tree. nil for every other builtin.
+	// operands names the sibling fields a {calc()} reads, in the order calcVars
+	// fixed; expand reads them before the call. nil for every other builtin.
 	operands []string
 }
 

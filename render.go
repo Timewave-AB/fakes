@@ -138,8 +138,8 @@ func expand(s *session, t *template) string {
 	var b strings.Builder
 	b.Grow(t.grow)
 	// One draw per held name, for this expansion only: a nested template and each
-	// repeat iteration get their own, since each is its own expansion. held stays a
-	// local: nothing hands it to a builtin, so it and its maps never leave the stack.
+	// repeat iteration get their own, since each is its own expansion. held reaches
+	// no further than readField, which keeps it and its maps on the stack.
 	var held *draws
 	if len(t.held) > 0 {
 		held = &draws{
@@ -157,8 +157,7 @@ func expand(s *session, t *template) string {
 		case 'f':
 			b.WriteString(readField(s, t, held, o.arms[s.IntN(len(o.arms))]))
 		case 'b':
-			// A calc's operands are read here, in the order its expression first
-			// names them, so the value it computes is the value the format showed.
+			// Read in the order calcVars fixed, which is what op.operands holds.
 			var operands []string
 			if len(o.operands) > 0 {
 				operands = make([]string, len(o.operands))
