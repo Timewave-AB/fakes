@@ -267,7 +267,7 @@ var reservedList = strings.Join(strings.Split(reservedInName, ""), " ")
 // name may contain.
 func checkName(name string) error {
 	if name == "" {
-		return fmt.Errorf("%q is empty, so no dot path can reach it", name)
+		return fmt.Errorf("%q is empty, which is not a path segment, so List never offers it", name)
 	}
 	if i := strings.IndexAny(name, reservedInName); i >= 0 {
 		return fmt.Errorf("%q contains %q; a name may not use %s, which the dot path and {token} grammars reserve",

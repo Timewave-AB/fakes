@@ -120,9 +120,9 @@ func TestNewErrors(t *testing.T) {
 			map[string]string{"a|b": `["1"]`},
 			`category "a|b" contains "|"`,
 		},
-		// An empty name is reachable by no dot path, so List cannot advertise it and
-		// Fake cannot ask for it — {} is the one spelling that reaches it, which is
-		// the same trap {a.} is already rejected for.
+		// An empty name is not a path segment, so List never offered it — while a
+		// bare {}, a trailing dot in Fake("a.") and a {..a.} reference all reached
+		// it. The engine accepted spellings it would never advertise.
 		"empty field name": {
 			map[string]string{"a": `{"format":"[{}]","":"VALUE"}`},
 			`field "" is empty`,
@@ -156,9 +156,15 @@ func TestNewErrors(t *testing.T) {
 			map[string]string{"a": `{"format":"{..|..}"}`},
 			"reference has no path",
 		},
+		// No field can be named "", so the token is told that rather than sent to
+		// name one — the fix "no field" points at is itself a load error.
 		"repeated empty arm": {
 			map[string]string{"a": `{"format":"{|}"}`},
-			`no field ""`,
+			"a name is never empty",
+		},
+		"bare empty token": {
+			map[string]string{"a": `{"format":"[{}]","x":["1"]}`},
+			"a name is never empty",
 		},
 	}
 	for name, c := range rejected {

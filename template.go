@@ -147,6 +147,9 @@ func checkTokens(format string, fields map[string]node) error {
 			}
 			head, ok := fields[a.key]
 			if !ok {
+				if a.key == "" {
+					return fmt.Errorf("token {%s}: a name is never empty, so this token can name no field", t.body)
+				}
 				if isOption(a.key) {
 					return fmt.Errorf("token {%s}: %q is an option and can never be a field", t.body, a.key)
 				}
