@@ -363,6 +363,12 @@ always agrees, and the other is a load error. This covers every way a level can
 be rendered: a token, a `{calc()}` operand, and a `{..path}` reference — wherever
 the reference sits, including in a field the format renders.
 
+A `{calc()}` operand is held on its own terms too, so the same fence guards it:
+`{..cat.net} x 2 = {calc(net * 2, 2)}` names one field two ways and is a load
+error, with no path token anywhere. What an operand's draw fixes is the value it
+renders, so a reference reaching *through* it is caught as well, while a sibling
+its format never renders is free — that sibling is no part of the value.
+
 ```text
 token {p} renders a level that {p.first} reads a path into; name the fields you want instead
 ```
