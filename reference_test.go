@@ -104,14 +104,28 @@ func TestReferenceErrors(t *testing.T) {
 		"mutual cycle across two folders": {"en_US/a": `{"format":"{..sv_SE.b}"}`, "sv_SE/b": `{"format":"{..en_US.a}"}`},
 		// ".." is reserved for bound references, so an authored key using it would
 		// name a node nothing can reach and nothing would validate.
-		"field key using the reference prefix":     {"cat": `{"format":"hi","..x":{"format":"{..nope}"}}`},
-		"category name using the reference prefix": {"sv_SE/..bad": `{"format":"{..nope}"}`},
-		"folder name using the reference prefix":   {"sv_SE/..y/cat": `{"format":"{..nope}"}`},
+		"field key using the reference prefix": {"cat": `{"format":"hi","..x":{"format":"{..nope}"}}`},
 	}
 	for name, files := range cases {
 		if _, err := New([]string{writeData(t, files)}); err == nil {
 			t.Errorf("%s: New = nil error, want a reference error", name)
 		}
+	}
+}
+
+// TestDotPrefixedDataEntriesAreSkipped pins what a leading dot means on disk: the
+// entry is hidden, not data, so a data directory can also be a checkout. A name
+// starting with the reference prefix is covered by that same rule, since ".."
+// starts with "." — it is skipped, not rejected.
+func TestDotPrefixedDataEntriesAreSkipped(t *testing.T) {
+	f := newFakes(t, writeData(t, map[string]string{
+		"sv_SE/ok":     `["fine"]`,
+		"sv_SE/..bad":  `{"format":"{..nope}"}`,
+		"sv_SE/..y/ct": `{"format":"{..nope}"}`,
+		".git/config":  `["not data"]`,
+	}), WithSeed(1))
+	if got := f.List(); len(got) != 1 || got[0] != "sv_SE.ok" {
+		t.Fatalf("List() = %v, want only sv_SE.ok", got)
 	}
 }
 
