@@ -103,16 +103,31 @@ func cover(n node, into map[node]bool) {
 	}
 }
 
-// operandDraw collects what one held draw of a {calc()} operand answers for: that
-// one node, since a calc renders its operand whole. Neither wider set works —
-// containment reaches a sibling the operand never renders, and the render closure
-// reaches a source two operands share, and neither of those can disagree with it.
+// operandDraw collects what one held draw of a {calc()} operand answers for: the
+// operand and what rendering it settles inside itself. A calc renders its operand
+// whole, so that draw fixes every value the render produced, and a second route to
+// any of them disagrees with it.
+//
+// The walk stops at a {..path} edge, which is where the operand's own value ends
+// and a shared source begins: two names referencing one category are two draws, the
+// same rule {word} {word} follows. cover stops there too, by way of named, so both
+// halves of the fence end at the same boundary. Containment would be wrong here —
+// it reaches a sibling the operand never renders, which is no part of its value.
 // A literal is left out for the reason cover leaves one out.
 func operandDraw(n node, into map[node]bool) {
 	if _, fixed := n.(literal); fixed {
 		return
 	}
+	if into[n] {
+		return
+	}
 	into[n] = true
+	for _, e := range renderEdges(n) {
+		if isRef(e.label) {
+			continue
+		}
+		operandDraw(e.to, into)
+	}
 }
 
 // renders reports whether rendering n can reach anything in want, following the
