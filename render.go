@@ -156,7 +156,8 @@ func expand(s *session, t *template) string {
 		case 'f':
 			b.WriteString(readField(s, t, held, o.arms[s.IntN(len(o.arms))]))
 		case 'b':
-			// Read in the order calcVars fixed, which is what op.operands holds.
+			// Read before the call, so the value a calc computes is the value the
+			// format showed. calcVars fixed the order op.operands holds.
 			var operands []string
 			if len(o.operands) > 0 {
 				operands = make([]string, len(o.operands))
