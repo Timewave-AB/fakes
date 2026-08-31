@@ -68,7 +68,7 @@ func checkBoundLevelsHeld(root map[string]node) error {
 				operandDraw(t.fields[head], held)
 			}
 			if len(held) == 0 {
-				continue // a fixed string, which cannot disagree with itself
+				continue // an early out: a literal head holds nothing to reach
 			}
 			// One seen set across the edges: a node that cannot reach the level
 			// cannot reach it by another route either, so it is walked once here.
@@ -111,9 +111,8 @@ func cover(n node, into map[node]bool) {
 // The walk stops at a {..path} edge, which is where the operand's own value ends
 // and a shared source begins: two names referencing one category are two draws, the
 // same rule {word} {word} follows. cover stops there too, by way of named, so both
-// halves of the fence end at the same boundary. Containment would be wrong here —
-// it reaches a sibling the operand never renders, which is no part of its value.
-// A literal is left out for the reason cover leaves one out.
+// halves of the fence end at the same boundary. A literal is left out for the
+// reason cover leaves one out.
 func operandDraw(n node, into map[node]bool) {
 	if _, fixed := n.(literal); fixed {
 		return

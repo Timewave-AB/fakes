@@ -200,6 +200,16 @@ func TestACalcOperandIsHeldAgainstEveryRoute(t *testing.T) {
 			},
 			`{q} renders "net"`,
 		},
+		// Each head is walked against its own seen set. Sharing one across heads
+		// would let the first head's walk mark the only route to the second's draw,
+		// and this violation sits on the later head in sorted order.
+		"a violation on the second of two held heads": {
+			map[string]string{
+				"cat": `{"format":"{calc(a + b, 0)} {w}","a":{"format":"{x}","x":["1","2"]},` +
+					`"b":{"format":"{y}","y":["3","4"]},"w":{"format":"{..cat.b}"}}`,
+			},
+			`{w} renders "b"`,
+		},
 	}
 	for name, c := range rejected {
 		_, err := New([]string{writeData(t, c.files)})
@@ -241,6 +251,11 @@ func TestACalcOperandIsHeldAgainstEveryRoute(t *testing.T) {
 		// A fixed string cannot disagree with itself, so it needs no fence.
 		"a literal operand named twice": {
 			"cat": `{"format":"{calc(n * 2, 0)} {..cat.n}","n":"5"}`,
+		},
+		// One node reached twice while walking the operand: the walk must not
+		// revisit it, and the repeat is not a second route to anything.
+		"an operand that renders one field twice": {
+			"cat": `{"format":"{calc(v * 2, 0)}","v":{"format":"{a}{a}","a":["1","2"]}}`,
 		},
 	}
 	for name, files := range accepted {
