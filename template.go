@@ -134,9 +134,6 @@ func checkTokens(format string, fields map[string]node) error {
 			return checkFunc(t.body, fields)
 		}
 		names := strings.Split(t.body, "|")
-		if err := checkNoRepeatedArm(t.body, names); err != nil {
-			return err
-		}
 		for _, name := range names {
 			if isRef(name) {
 				if name == refPrefix {
@@ -159,14 +156,17 @@ func checkTokens(format string, fields map[string]node) error {
 				return fmt.Errorf("token {%s}: field %q: %w", t.body, a.key, err)
 			}
 		}
-		return nil
+		// Last, so an arm broken on its own terms is reported as that: a repeat is
+		// the consequence of such a mistake, not the mistake itself.
+		return checkNoRepeatedArm(t.body, names)
 	})
 }
 
 // checkNoRepeatedArm rejects {a|a|b}. An alternation picks its arms evenly, so a
 // repeated one skews the odds — a third spelling of what weight is for, and one an
 // author is far likelier to have typed by accident than meant. The error names the
-// spelling that does skew a pick.
+// spelling that does skew a pick. It runs over the arms as written, so a repeated
+// reference arm ({..a|..a}) is caught alongside a repeated sibling.
 func checkNoRepeatedArm(body string, names []string) error {
 	if len(names) < 2 {
 		return nil
