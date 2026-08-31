@@ -44,8 +44,12 @@ func (n calcIdx) eval(operands []string) float64 {
 }
 
 // eval on an unplaced name cannot happen: calcPrep runs indexVars over every
-// expression it compiles, so only a calcIdx reaches a render.
-func (n calcVar) eval([]string) float64 { return math.NaN() }
+// expression it compiles, so only a calcIdx reaches a render. It panics rather
+// than returning NaN, so a node kind indexVars forgets is a stack trace and not a
+// silently wrong number.
+func (n calcVar) eval([]string) float64 {
+	panic(fmt.Sprintf("fakes: calc operand %q was never placed", string(n)))
+}
 
 func (n calcNeg) eval(operands []string) float64 { return -n.x.eval(operands) }
 
@@ -112,7 +116,11 @@ func calcPrep(args []string) callFn {
 func indexVars(n calcNode, at map[string]int) calcNode {
 	switch n := n.(type) {
 	case calcVar:
-		return calcIdx(at[string(n)])
+		i, placed := at[string(n)]
+		if !placed { // calcVars named every operand, so a miss means the two disagree
+			panic(fmt.Sprintf("fakes: calc operand %q is not among the names read for it", string(n)))
+		}
+		return calcIdx(i)
 	case calcNeg:
 		return calcNeg{indexVars(n.x, at)}
 	case calcBin:
