@@ -158,12 +158,35 @@ func TestACalcOperandIsHeldAgainstEveryRoute(t *testing.T) {
 			t.Errorf("%s: New = %v, want the second route to the operand rejected", name, err)
 		}
 	}
-	// The spellings that read the one draw stay legal: the operand itself, and a
-	// bare token naming it.
-	if _, err := New([]string{writeData(t, map[string]string{
-		"ok": `{"format":"{net} x 2 = {calc(net * 2, 2)}","net":["10.00","20.00"]}`,
-	})}); err != nil {
-		t.Errorf("New = %v, want a format that only reads the operand accepted", err)
+	// A reference reaching what the operand renders *through* is a second route
+	// too, however the operand comes by its value.
+	_, err := New([]string{writeData(t, map[string]string{
+		"common": `["1","2"]`,
+		"cat":    `{"format":"{calc(net * 2, 2)} {..common}","net":{"format":"{..common}"}}`,
+	})})
+	if err == nil || !strings.Contains(err.Error(), "a {calc()} also reads") {
+		t.Errorf("New = %v, want the reference to what the operand renders rejected", err)
+	}
+
+	accepted := map[string]map[string]string{
+		// The spellings that read the one draw: the operand itself, and a bare token.
+		"only the operand and a bare token": {
+			"cat": `{"format":"{net} x 2 = {calc(net * 2, 2)}","net":["10.00","20.00"]}`,
+		},
+		// An operand's draw fixes the value it renders and nothing else, so a sibling
+		// its format never renders cannot disagree with it. A path head differs: a
+		// path may read into anything the level contains, which is why that half of
+		// the fence still covers containment.
+		"a reference to a sibling the operand never renders": {
+			"cat": `{"format":"{calc(net * 2, 2)} {unit}",` +
+				`"net":{"format":"{v}","v":["1","2"],"spare":["kg","lb"]},` +
+				`"unit":{"format":"{..cat.net.spare}"}}`,
+		},
+	}
+	for name, files := range accepted {
+		if _, err := New([]string{writeData(t, files)}); err != nil {
+			t.Errorf("%s: New = %v, want it accepted", name, err)
+		}
 	}
 }
 
