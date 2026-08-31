@@ -148,25 +148,50 @@ func TestALevelRenderedOnlyByAPathTokenIsHeld(t *testing.T) {
 // shown is not the value computed. Two names that merely draw from one source are
 // two draws, as {word} {word} is — the rule everywhere else in the engine.
 func TestACalcOperandIsHeldAgainstEveryRoute(t *testing.T) {
-	rejected := map[string]map[string]string{
+	rejected := map[string]struct {
+		files map[string]string
+		want  string // the route the error names, spelled as the author wrote it
+	}{
 		"a reference beside the operand": {
-			"cat": `{"format":"{..cat.net} x 2 = {calc(net * 2, 2)}","net":["10.00","20.00"]}`,
+			map[string]string{
+				"cat": `{"format":"{..cat.net} x 2 = {calc(net * 2, 2)}","net":["10.00","20.00"]}`,
+			},
+			`{..cat.net} renders "net"`,
 		},
 		"a reference one level down": {
-			"cat": `{"format":"{calc(net * 2, 2)} {q}","net":["10.00","20.00"],` +
-				`"q":{"format":"{..cat.net}"}}`,
+			map[string]string{
+				"cat": `{"format":"{calc(net * 2, 2)} {q}","net":["10.00","20.00"],` +
+					`"q":{"format":"{..cat.net}"}}`,
+			},
+			`{q} renders "net"`,
 		},
 		// A reference ending at the operand binds the choice itself, not a variant,
 		// so wrapping the operand in one changes nothing.
 		"a reference to an operand wrapped in a choice": {
-			"cat": `{"format":"{calc(n * 2, 2)} {q}","n":[{"format":"{v}","v":["1","2"]}],` +
-				`"q":{"format":"{..cat.n}"}}`,
+			map[string]string{
+				"cat": `{"format":"{calc(n * 2, 2)} {q}","n":[{"format":"{v}","v":["1","2"]}],` +
+					`"q":{"format":"{..cat.n}"}}`,
+			},
+			`{q} renders "n"`,
+		},
+		// The reaching route can be another operand, which is not a token — so the
+		// error must name it as one rather than invent a {b} the format never wrote.
+		"an operand reaching another operand": {
+			map[string]string{
+				"cat": `{"format":"{calc(a + b, 0)}","a":{"format":"{x}","x":["1","2"]},` +
+					`"b":{"format":"{..cat.a}"}}`,
+			},
+			`calc operand "b" renders "a"`,
 		},
 	}
-	for name, files := range rejected {
-		_, err := New([]string{writeData(t, files)})
+	for name, c := range rejected {
+		_, err := New([]string{writeData(t, c.files)})
 		if err == nil || !strings.Contains(err.Error(), "a {calc()} also reads") {
 			t.Errorf("%s: New = %v, want the second route to the operand rejected", name, err)
+			continue
+		}
+		if !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: New = %v, want it to name %q", name, err, c.want)
 		}
 	}
 
