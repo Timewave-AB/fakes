@@ -142,6 +142,31 @@ func TestALevelRenderedOnlyByAPathTokenIsHeld(t *testing.T) {
 	}
 }
 
+// TestACalcOperandIsHeldAgainstEveryRoute pins that a {calc()} operand is fenced
+// the way a path-read level is. The operand is drawn once and held; a {..path}
+// spelling of the same field renders it afresh, so the value shown would not be
+// the value computed — the disagreement the hold exists to remove.
+func TestACalcOperandIsHeldAgainstEveryRoute(t *testing.T) {
+	rejected := map[string]string{
+		"a reference beside the operand": `{"format":"{..cat.net} x 2 = {calc(net * 2, 2)}","net":["10.00","20.00"]}`,
+		"a reference one level down": `{"format":"{calc(net * 2, 2)} {q}","net":["10.00","20.00"],` +
+			`"q":{"format":"{..cat.net}"}}`,
+	}
+	for name, file := range rejected {
+		_, err := New([]string{writeData(t, map[string]string{"cat": file})})
+		if err == nil || !strings.Contains(err.Error(), "a {calc()} also reads") {
+			t.Errorf("%s: New = %v, want the second route to the operand rejected", name, err)
+		}
+	}
+	// The spellings that read the one draw stay legal: the operand itself, and a
+	// bare token naming it.
+	if _, err := New([]string{writeData(t, map[string]string{
+		"ok": `{"format":"{net} x 2 = {calc(net * 2, 2)}","net":["10.00","20.00"]}`,
+	})}); err != nil {
+		t.Errorf("New = %v, want a format that only reads the operand accepted", err)
+	}
+}
+
 func TestAPathReachesEveryVariantItMightDraw(t *testing.T) {
 	// A path through a choice may land in any variant, so both walks have to see
 	// all of them. Reaching only the first leaves whatever hides in a later
