@@ -137,6 +137,12 @@ func TestNewErrors(t *testing.T) {
 			map[string]string{"a": `{"format":"{p.v|p.v}","p":{"format":"{v}","v":["1"]}}`},
 			`arm "p.v" is repeated`,
 		},
+		// A reference arm is the only kind that reaches the repeat check by passing
+		// the per-arm checks rather than falling through them.
+		"repeated reference arm": {
+			map[string]string{"a": `["x"]`, "b": `{"format":"{..a|..a}"}`},
+			`arm "..a" is repeated`,
+		},
 		// An arm that is broken on its own terms is reported as that, not as a
 		// repeat: the repeat is a consequence of the real mistake.
 		"repeated arm with no path": {
