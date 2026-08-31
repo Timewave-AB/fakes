@@ -137,6 +137,16 @@ func TestNewErrors(t *testing.T) {
 			map[string]string{"a": `{"format":"{p.v|p.v}","p":{"format":"{v}","v":["1"]}}`},
 			`arm "p.v" is repeated`,
 		},
+		// An arm that is broken on its own terms is reported as that, not as a
+		// repeat: the repeat is a consequence of the real mistake.
+		"repeated arm with no path": {
+			map[string]string{"a": `{"format":"{..|..}"}`},
+			"reference has no path",
+		},
+		"repeated empty arm": {
+			map[string]string{"a": `{"format":"{|}"}`},
+			`no field ""`,
+		},
 	}
 	for name, c := range rejected {
 		_, err := New([]string{writeData(t, c.files)})
