@@ -38,21 +38,24 @@ func linkRefs(root map[string]node) error {
 	})
 }
 
-// checkBoundLevelsHeld rejects every route to a bound level except the paths that
-// read it. A path holds one draw of the level; anything else that renders it draws
-// again, and the two disagree. checkNoOverlap settles the spellings within one
+// checkBoundLevelsHeld rejects every route to a held name except the ones that read
+// its draw. An expansion holds one draw of that name; anything else that renders it
+// draws again, and the two disagree. checkNoOverlap settles the spellings within one
 // format (a token, a calc operand); this settles the rest — a reference, whether it
 // sits in that format or in anything the format renders, however deep.
+//
+// It walks t.held, so it covers both kinds of hold: the level a dotted token reads,
+// and the sibling a {calc()} reads.
 //
 // It runs after checkNoCycles, whose guarantee is what lets the walk terminate.
 func checkBoundLevelsHeld(root map[string]node) error {
 	return walkNodes(root, func(path string, n node) error {
 		t, ok := n.(*template)
-		if !ok || len(t.bound) == 0 {
+		if !ok || len(t.held) == 0 {
 			return nil
 		}
-		heads := make([]string, 0, len(t.bound))
-		for head := range t.bound {
+		heads := make([]string, 0, len(t.held))
+		for head := range t.held {
 			heads = append(heads, head)
 		}
 		sort.Strings(heads) // so which overlap is reported does not vary
@@ -64,10 +67,13 @@ func checkBoundLevelsHeld(root map[string]node) error {
 			seen := map[node]bool{}
 			for _, e := range renderEdges(t) {
 				if splitArm(e.label).key == head {
-					continue // a path token reading this level, which is the one route allowed
+					continue // a token or operand reading this draw, the routes allowed
 				}
 				if renders(e.to, held, seen) {
-					return fmt.Errorf("%s: {%s} renders %q, which {%s} reads a path into; name the fields you want instead", path, e.label, head, t.bound[head])
+					if reader, isPath := t.bound[head]; isPath {
+						return fmt.Errorf("%s: {%s} renders %q, which {%s} reads a path into; name the fields you want instead", path, e.label, head, reader)
+					}
+					return fmt.Errorf("%s: {%s} renders %q, which a {calc()} also reads; spell it {%s} so both read one draw", path, e.label, head, head)
 				}
 			}
 		}
