@@ -61,9 +61,6 @@ func loadDir(dir string) (*group, error) {
 		}
 		full := filepath.Join(dir, e.Name())
 		if e.IsDir() {
-			if isRef(e.Name()) {
-				return nil, fmt.Errorf("%s: folder %q starts with %q, which is reserved for {..path} bindings", full, e.Name(), refPrefix)
-			}
 			child, err := loadDir(full)
 			if err != nil {
 				return nil, err
@@ -81,9 +78,6 @@ func loadDir(dir string) (*group, error) {
 			continue
 		}
 		name := strings.TrimSuffix(e.Name(), ".json")
-		if isRef(name) {
-			return nil, fmt.Errorf("%s: category %q starts with %q, which is reserved for {..path} bindings", full, name, refPrefix)
-		}
 		if err := checkName(name); err != nil {
 			return nil, fmt.Errorf("%s: category %w", full, err)
 		}
